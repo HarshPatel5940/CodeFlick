@@ -1,0 +1,29 @@
+{{block "index" . }}
+<!doctype html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <script src="https://unpkg.com/htmx.org@1.9.12"
+        integrity="sha384-ujb1lZYygJmzgSwoxRggbCHcjc0rB2XoQrxeTUQyRjrOnlCoYta87iKBWq3EsdM2"
+        crossorigin="anonymous"></script>
+    <title>{{ .title }}</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+
+<body>
+    <div id="count" class="align-self-center">
+        {{ template "counter" . }}
+    </div>
+    <button class="border p-2" hx-target="#count" hx-post="/api/increment">increment</button>
+</body>
+
+</html>
+{{end}}
+
+{{block "counter" .}}
+<div class="text-3xl">
+    Count {{ .Count }}
+</div>
+{{end}}
