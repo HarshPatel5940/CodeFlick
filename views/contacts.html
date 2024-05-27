@@ -1,43 +1,52 @@
 {{ block "contact-index" . }}
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
-
-<head>
+  <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <script src="https://unpkg.com/htmx.org@1.9.12"
-        integrity="sha384-ujb1lZYygJmzgSwoxRggbCHcjc0rB2XoQrxeTUQyRjrOnlCoYta87iKBWq3EsdM2"
-        crossorigin="anonymous"></script>
+    <script
+      src="https://unpkg.com/htmx.org@1.9.12"
+      integrity="sha384-ujb1lZYygJmzgSwoxRggbCHcjc0rB2XoQrxeTUQyRjrOnlCoYta87iKBWq3EsdM2"
+      crossorigin="anonymous"
+    ></script>
     <title>Hello World</title>
     <script src="https://cdn.tailwindcss.com"></script>
-</head>
+  </head>
 
-<body>
+  <body>
     {{ template "form" . }}
-    <hr>
+    <hr />
     {{ template "contacts" . }}
-</body>
-
+  </body>
 </html>
-{{ end }}
-
-{{ block "form" . }} 
-<form class="flex gap-5 mt-10 ml-5" hx-post="/api/contacts" hx-target="#contacts" hx-swap="outerHTML">
-    <input class="border gap-2 text-xl" placeholder="name" name="Name"/>
-    <input class="border gap-2 text-xl" placeholder="email" name="Email"/>
-    <button class="border gap-2 text-xl text-red-500 p-2" type="submit">Add Contact</button>
+{{ end }} {{ block "form" . }}
+<form
+  class="flex gap-5 mt-10 ml-5"
+  hx-post="/api/contacts"
+  hx-target="#contacts"
+  hx-swap="outerHTML"
+>
+  >
+  <input class="border gap-2 text-xl" placeholder="name" name="Name" />
+  <input class="border gap-2 text-xl" placeholder="email" name="Email" />
+  <button class="border gap-2 text-xl text-red-500 p-2" type="submit">
+    Add Contact
+  </button>
 </form>
-{{ end }}
+{{ end }} {{ block "contacts" . }}
+<div id="contacts" class="flex flex-col gap-3">
+  {{ range .Contacts }}
+  <form
+    class="flex gap-5 mt-2"
+    hx-delete="/api/contacts/{{ .Id }}"
+    hx-target="#contacts"
+    hx-swap="outerHTML"
+  >
+    Id: {{ .Id }} Name: {{ .Name }} Email: {{ .Email }}
 
+    <button class="border 3px" type="submit">Delete This Contact</button>
+  </form>
 
-{{ block "contacts" . }}
-    <div id="contacts" class="flex flex-col gap-3">
-        {{ range .Contacts }}
-        <div class="border 3px mt-2">
-            Name: {{ .Name }}
-        </br>
-            Email: {{ .Email }}
-            </div>
-        {{ end }}
-    </div>
+  {{ end }}
+</div>
 {{ end }}

@@ -3,6 +3,8 @@ package main
 import (
 	"html/template"
 	"io"
+	"log"
+	"strconv"
 
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
@@ -34,6 +36,8 @@ type Person struct {
 type H = map[string]interface{}
 
 type Contact struct {
+	// ? can't name it .id cause it will then have problem with templating
+	Id    int
 	Name  string
 	Email string
 }
@@ -44,8 +48,9 @@ type Data struct {
 	Contacts contacts
 }
 
-func newContact(name string, email string) Contact {
+func newContact(id int, name string, email string) Contact {
 	return Contact{
+		Id:    id,
 		Name:  name,
 		Email: email,
 	}
@@ -54,8 +59,8 @@ func newContact(name string, email string) Contact {
 func newData() Data {
 	return Data{
 		Contacts: []Contact{
-			newContact("harsh", "test@gmail.com"),
-			newContact("harsh-2", "test-2@gmail.com"),
+			newContact(0, "harsh", "test@gmail.com"),
+			newContact(1, "harsh-2", "test-2@gmail.com"),
 		},
 	}
 }
@@ -90,10 +95,32 @@ func main() {
 	e.POST("/api/contacts", func(c echo.Context) error {
 		name := c.FormValue("Name")
 		email := c.FormValue("Email")
-		newContact := newContact(name, email)
+		newContact := newContact(count.Count+2, name, email)
+		count.Count++
 		data.Contacts = append(data.Contacts, newContact)
 
-		e.Logger.Info(data.Contacts)
+		return c.Render(200, "contacts", data)
+	})
+
+	e.DELETE("/api/contacts/:id", func(c echo.Context) error {
+		fId := c.Param("id")
+		log.Println("-->", fId)
+		Id, err := strconv.Atoi(fId)
+		if err != nil {
+			return c.JSON(400, H{
+				"error": "Invalid Id",
+			})
+		}
+
+		// filter out the contact with the given id
+		contacts := data.Contacts[:0]
+		for _, contact := range data.Contacts {
+			if contact.Id != Id {
+				contacts = append(contacts, contact)
+			}
+		}
+		count.Count--
+		data.Contacts = contacts
 
 		return c.Render(200, "contacts", data)
 	})
