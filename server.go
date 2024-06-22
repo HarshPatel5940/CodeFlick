@@ -13,6 +13,9 @@ import (
 	"github.com/markbates/goth"
 	"github.com/markbates/goth/gothic"
 	"github.com/markbates/goth/providers/google"
+
+	"github.com/minio/minio-go/v7"
+	"github.com/minio/minio-go/v7/pkg/credentials"
 )
 
 var (
@@ -29,6 +32,10 @@ func main() {
 
 	googleClientID := os.Getenv("GOOGLE_CLIENT_ID")
 	googleClientSecret := os.Getenv("GOOGLE_CLIENT_SECRET")
+	minioAccessKey := os.Getenv("MINIO_ACCESS_KEY")
+	minioAccessSecret := os.Getenv("MINIO_ACCESS_SECRET")
+	endpoint := "localhost:9000"
+	useSSL := false
 
 	store := sessions.NewCookieStore([]byte(Key))
 
@@ -43,9 +50,32 @@ func main() {
 		google.New(googleClientID, googleClientSecret, "http://localhost:8080/auth/google/callback", "email", "profile"),
 	)
 
+	minioClient, err := minio.New(endpoint, &minio.Options{
+		Creds:  credentials.NewStaticV4(minioAccessKey, minioAccessSecret, ""),
+		Secure: useSSL,
+	})
+	if err != nil {
+		log.Fatalln(err)
+	}
+
 	e := echo.New()
 	e.GET("/", func(c echo.Context) error {
 		return c.String(200, "Hello, World!")
+		// minioClient is now setup
+	})
+
+	e.GET("/minio", func(c echo.Context) error {
+		list, err := minioClient.ListBuckets(context.Background())
+		if err != nil {
+			log.Fatalln(err)
+		}
+
+		var bucketNames string
+		for _, bucket := range list {
+			bucketNames += bucket.Name + ", "
+		}
+
+		return c.String(200, bucketNames)
 	})
 
 	e.GET("/auth/:provider/login", func(c echo.Context) error {
