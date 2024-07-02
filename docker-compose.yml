@@ -9,18 +9,21 @@ services:
       - "9001:9001"
     volumes:
       - minio_data:/data
-
+    networks:
+      - minio-network
+    environment:
+      MINIO_ROOT_USER: "HarshPatel"
+      MINIO_ROOT_PASSWORD: "Password"
     healthcheck:
       test: ["CMD", "mc", "ready", "local"]
       interval: 5s
       timeout: 5s
       retries: 5
-
     command: server --console-address ":9001" /data
-
-    environment:
-      MINIO_ROOT_USER: "HarshPatel"
-      MINIO_ROOT_PASSWORD: "Password"
 
 volumes:
   minio_data:
+
+networks:
+  minio-network:
+    driver: bridge

@@ -2,9 +2,11 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"log"
 	"log/slog"
 	"os"
+	"time"
 
 	"github.com/gorilla/sessions"
 	"github.com/joho/godotenv"
@@ -34,6 +36,7 @@ func main() {
 	googleClientSecret := os.Getenv("GOOGLE_CLIENT_SECRET")
 	minioAccessKey := os.Getenv("MINIO_ACCESS_KEY")
 	minioAccessSecret := os.Getenv("MINIO_ACCESS_SECRET")
+	minioBucketName := "codeflick"
 	endpoint := "localhost:9000"
 	useSSL := false
 
@@ -64,7 +67,7 @@ func main() {
 		// minioClient is now setup
 	})
 
-	e.GET("/minio", func(c echo.Context) error {
+	e.GET("/storage/buckets", func(c echo.Context) error {
 		list, err := minioClient.ListBuckets(context.Background())
 		if err != nil {
 			log.Fatalln(err)
@@ -76,6 +79,39 @@ func main() {
 		}
 
 		return c.String(200, bucketNames)
+	})
+
+	e.POST("/storage/new", func(c echo.Context) error {
+		user := c.FormValue("user")
+		fileName := c.FormValue("name")
+		// email := c.FormValue("email")
+
+		file, err := c.FormFile("file")
+		if err != nil {
+			return err
+		}
+		src, err := file.Open()
+		if err != nil {
+			return err
+		}
+		defer src.Close()
+
+		location := fmt.Sprintf("%s/%s", user, fileName)
+
+		//----------- send to minio docker img
+		fileInfo, err := minioClient.PutObject(context.Background(),
+			minioBucketName,
+			location,
+			src,
+			file.Size,
+			minio.PutObjectOptions{ContentType: file.Header.Get("Content-Type"), Expires: <-time.After(time.Hour * 24 * 30)})
+
+		if err != nil {
+			log.Fatalln(err)
+		}
+
+		slog.Info("Successfully uploaded", fileInfo.Size)
+		return c.String(200, location)
 	})
 
 	e.GET("/auth/:provider/login", func(c echo.Context) error {
@@ -106,3 +142,25 @@ func main() {
 	e.Logger.Fatal(e.Start(":8080"))
 
 }
+
+/* bucket policy
+{
+    "Statement": [{
+        "Action": ["s3:GetBucketLocation", "s3:ListBucket"],
+        "Effect": "Allow",
+        "Principal": {
+            "AWS": ["*"]
+        },
+        "Resource": ["arn:aws:s3:::job-offers"]
+    }, {
+        "Action": ["s3:GetObject"],
+        "Effect": "Allow",
+        "Principal": {
+            "AWS": ["*"]
+        },
+        "Resource": ["arn:aws:s3:::job-offers/*"]
+    }],
+    "Version": "2012-10-17"
+}
+
+*/
