@@ -1,7 +1,7 @@
-version: "3"
+version: "1.0"
 
 services:
-  minio:
+  codeflick_minio:
     container_name: codeflick-minio
     image: minio/minio
     ports:
@@ -21,8 +21,23 @@ services:
       retries: 5
     command: server --console-address ":9001" /data
 
+  codeflick_postgres:
+    container_name: codeflick-postgres
+    image: postgres:13
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: "HarshPatel"
+      POSTGRES_PASSWORD: "Password"
+      POSTGRES_DB: "codeflick"
+    volumes:
+      - postgres_data:/data
+    networks:
+      - minio-network
+
 volumes:
   minio_data:
+  postgres_data:
 
 networks:
   minio-network:

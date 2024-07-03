@@ -1,0 +1,21 @@
+{
+  "Statement": [
+    {
+      "Action": ["s3:GetBucketLocation", "s3:ListBucket"],
+      "Effect": "Allow",
+      "Principal": {
+        "AWS": ["*"]
+      },
+      "Resource": ["arn:aws:s3:::job-offers"]
+    },
+    {
+      "Action": ["s3:GetObject"],
+      "Effect": "Allow",
+      "Principal": {
+        "AWS": ["*"]
+      },
+      "Resource": ["arn:aws:s3:::job-offers/*"]
+    }
+  ],
+  "Version": "2012-10-17"
+}

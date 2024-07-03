@@ -8,7 +8,6 @@ type Link struct {
 	OrgFileName string `json:"orgFileName" db:"org_file_name"`
 
 	ViewCount int  `json:"viewCount" db:"view_count"`
-	IsPremium bool `json:"isPremium" db:"is_premium"`
 	IsEnabled bool `json:"isEnabled" db:"is_enabled"`
 	IsDeleted bool `json:"isDeleted" db:"is_deleted"`
 
