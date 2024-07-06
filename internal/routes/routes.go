@@ -28,11 +28,12 @@ func SetupRoutes(e *echo.Group,
 	FileStorageHandler *handlers.FileStorageHandler,
 	AuthHandler *handlers.AuthHandler,
 ) {
-	e.GET("/", root)
+	e.GET("", root)
 
 	// Auth Routes
 	e.GET("/auth/:provider/login", AuthHandler.GoogleOauthLogin)
 	e.GET("/auth/:provider/callback", AuthHandler.GoogleOauthCallback)
+	e.GET("/auth/session", AuthHandler.GetSessionDetails)
 
 	// File Routes
 	e.GET("/buckets", FileStorageHandler.ListBuckets)

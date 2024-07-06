@@ -20,7 +20,7 @@ var env = map[string]any{
 	"MINIO_SSL_POLICY":        "false",
 	"MINIO_BUCKET_NAME":       "codeflick",
 	"MINIO_ENDPOINT":          "localhost:9000",
-	"GORILLA_SESSIONS_MAXAGE": "86400",
+	"GORILLA_SESSIONS_MAXAGE": "604800",
 	"GORILLA_SESSIONS_KEY":    "NotSoSecretKey-ChangeMe-Please",
 }
 

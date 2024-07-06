@@ -3,10 +3,14 @@ package handlers
 import (
 	"context"
 	"log"
+	"log/slog"
+	"net/http"
+	"strconv"
 
 	"github.com/HarshPatel5940/CodeFlick/internal/utils"
 	"github.com/gorilla/sessions"
 	"github.com/jmoiron/sqlx"
+	"github.com/labstack/echo-contrib/session"
 	"github.com/labstack/echo/v4"
 	"github.com/markbates/goth"
 	"github.com/markbates/goth/gothic"
@@ -14,12 +18,21 @@ import (
 )
 
 type AuthHandler struct {
-	db *sqlx.DB
+	db         *sqlx.DB
+	sessionAge int
 }
 
 func NewAuthHandler(db *sqlx.DB) *AuthHandler {
 	InitialiseAuth()
-	return &AuthHandler{db: db}
+	sessionAge, err := strconv.Atoi(utils.GetEnv("GORILLA_SESSIONS_MAXAGE", "604800"))
+
+	if err != nil {
+		slog.Error("GORILLA_SESSIONS_MAXAGE is not a valid integer! Taking '604800' (7 Days) as default value")
+		slog.Error(err.Error())
+		sessionAge = 604800
+	}
+
+	return &AuthHandler{db: db, sessionAge: sessionAge}
 }
 
 func InitialiseAuth() {
@@ -34,7 +47,7 @@ func InitialiseAuth() {
 			utils.GetEnv("GOOGLE_CLIENT_ID"),
 			utils.GetEnv("GOOGLE_CLIENT_SECRET"),
 			utils.GetEnv("GOOGLE_CALLBACK_URL"),
-			"email", "profile"),
+		),
 	)
 }
 
@@ -52,42 +65,62 @@ func (ah AuthHandler) GoogleOauthLogin(c echo.Context) error {
 	return nil
 }
 
-/*
- // google user response
-{
-  "RawData": {
-    "email": "REDACTED",
-    "family_name": "Patel",
-    "given_name": "Harsh",
-    "id": "REDACTED",
-    "name": "Harsh Patel",
-    "picture": "REDACTED",
-    "verified_email": true
-  },
-  "Provider": "google",
-  "Email": "REDACTED",
-  "Name": "Harsh Patel",
-  "FirstName": "Harsh",
-  "LastName": "Patel",
-  "NickName": "Harsh Patel",
-  "Description": "",
-  "UserID": "REDACTED",
-  "AvatarURL": "REDACTED"
-  "Location": "",
-  "AccessToken": "REDACTED",
-  "AccessTokenSecret": "",
-  "RefreshToken": "REDACTED",
-  "ExpiresAt": "2024-07-02T11:29:03.613039+05:30",
-  "IDToken": "REDACTED",
-}
-*/
-
 func (ah AuthHandler) GoogleOauthCallback(c echo.Context) error {
 	user, err := gothic.CompleteUserAuth(c.Response(), c.Request())
 	if err != nil {
 		return err
 	}
-	// TODO: store the user in a session
 
-	return c.JSON(200, user)
+	sess, err := session.Get("session", c)
+	if err != nil {
+		return err
+	}
+
+	sess.Options = &sessions.Options{
+		Path:     "/",
+		MaxAge:   ah.sessionAge,
+		HttpOnly: true,
+	}
+
+	sess.Values["id"] = user.UserID
+	sess.Values["name"] = user.Name
+	sess.Values["email"] = user.Email
+	sess.Values["verified_email"] = user.RawData["verified_email"]
+
+	if err := sess.Save(c.Request(), c.Response()); err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, map[string]any{
+			"success": false,
+			"message": "Failed to save session!",
+			"details": err.Error(),
+		})
+
+	}
+
+	return c.JSON(200, map[string]any{
+		"success": true,
+		"message": "Successfully logged in with Google!",
+	})
+}
+
+// Debug session details using this endpoint
+
+func (ah AuthHandler) GetSessionDetails(c echo.Context) error {
+	sess, err := session.Get("session", c)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, map[string]any{
+			"success": false,
+			"message": "Failed to get session!",
+			"details": err.Error(),
+		})
+	}
+
+	return c.JSON(200, map[string]any{
+		"success": true,
+		"message": "Session details fetched successfully!",
+		"data": map[string]any{
+			"id":             sess.Values["id"],
+			"name":           sess.Values["name"],
+			"email":          sess.Values["email"],
+			"verified_email": sess.Values["verified_email"]},
+	})
 }

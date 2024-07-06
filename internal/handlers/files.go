@@ -63,13 +63,24 @@ func (fh FileStorageHandler) UploadFile(c echo.Context) error {
 func (fh FileStorageHandler) ListBuckets(c echo.Context) error {
 	list, err := fh.minio.ListBuckets(context.Background())
 	if err != nil {
-		log.Fatalln(err)
+		resp := minio.ToErrorResponse(err)
+
+		if resp.Code != "" {
+			return echo.NewHTTPError(http.StatusInternalServerError, map[string]any{
+				"success": false,
+				"Message": resp.Message,
+				"Details": resp,
+			})
+		}
+		return echo.NewHTTPError(http.StatusInternalServerError, map[string]any{
+			"success": false,
+			"Message": err.Error(),
+		})
+
 	}
 
-	var bucketNames string
-	for _, bucket := range list {
-		bucketNames += bucket.Name + ", "
-	}
-
-	return c.String(200, bucketNames)
+	return c.JSON(http.StatusOK, map[string]any{
+		"success": true,
+		"message": list,
+	})
 }
