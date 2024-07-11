@@ -1,16 +1,27 @@
-version: "1.0"
-
 services:
+  server:
+    build:
+      context: .
+      target: final
+    ports:
+      - 8080:8080
+    depends_on:
+      codeflick_minio:
+        condition: service_healthy
+      codeflick_postgres:
+        condition: service_healthy
+
   codeflick_minio:
     container_name: codeflick-minio
     image: minio/minio
+    restart: always
     ports:
       - "9000:9000"
       - "9001:9001"
     volumes:
       - minio_data:/data
     networks:
-      - minio-network
+      - codeflick-network
     environment:
       MINIO_ROOT_USER: "HarshPatel"
       MINIO_ROOT_PASSWORD: "Password"
@@ -24,21 +35,27 @@ services:
   codeflick_postgres:
     container_name: codeflick-postgres
     image: postgres:13
+    restart: always
     ports:
       - "5432:5432"
+    volumes:
+      - postgres_data:/data
+    networks:
+      - codeflick-network
     environment:
       POSTGRES_USER: "HarshPatel"
       POSTGRES_PASSWORD: "Password"
       POSTGRES_DB: "codeflick"
-    volumes:
-      - postgres_data:/data
-    networks:
-      - minio-network
+    healthcheck:
+      test: ["CMD", "pg_isready"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
 volumes:
   minio_data:
   postgres_data:
 
 networks:
-  minio-network:
+  codeflick-network:
     driver: bridge

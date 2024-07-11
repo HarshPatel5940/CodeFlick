@@ -36,17 +36,14 @@ watch:
 
 .PHONY: all build run test clean
 
-db-up:
-	docker compose up -d
+migrate-up:
+	@echo "Migrating up..."
+	@go run cmd/migrate/main.go up
 
-db-stop:
-	docker compose stop
+migrate-down:
+	@echo "Migrating down..."
+	@go run cmd/migrate/main.go down
 
-db-down:
-	docker compose down
-
-db-clean:
-	docker compose down -v
-
-db-logs:
-	docker compose logs -f
+migrate-create:
+	@echo "Creating migration..."
+	@go run cmd/migrate/main.go create

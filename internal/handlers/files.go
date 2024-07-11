@@ -76,7 +76,6 @@ func (fh FileStorageHandler) ListBuckets(c echo.Context) error {
 			"success": false,
 			"Message": err.Error(),
 		})
-
 	}
 
 	return c.JSON(http.StatusOK, map[string]any{

@@ -1,9 +1,8 @@
 package models
 
 type User struct {
-	UserID       string `json:"userId" db:"user_id"`
 	Name         string `json:"name" db:"name"`
-	Email        string `json:"email" db:"email"`
+	Email        string `json:"email" db:"email" `
 	AuthProvider string `json:"authProvider" db:"auth_provider"`
 	IsAdmin      bool   `json:"isAdmin" db:"is_admin"`
 	IsPremium    bool   `json:"isPremium" db:"is_premium"`

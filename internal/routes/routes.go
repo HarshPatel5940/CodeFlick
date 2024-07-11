@@ -38,4 +38,5 @@ func SetupRoutes(e *echo.Group,
 	// File Routes
 	e.GET("/buckets", FileStorageHandler.ListBuckets)
 	e.POST("/gists/new", FileStorageHandler.UploadFile)
+
 }

@@ -14,5 +14,6 @@ func SetupMiddlewares(app *echo.Echo) {
 	app.Use(middleware.CORS())
 	app.Use(middleware.Secure())
 	app.Use(session.Middleware(sessions.NewCookieStore([]byte("secret"))))
+	app.Use(middleware.RateLimiter(middleware.NewRateLimiterMemoryStore(4)))
 	app.Use(middleware.Recover())
 }
