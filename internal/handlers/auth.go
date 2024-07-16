@@ -157,8 +157,14 @@ func (ah AuthHandler) UpsertUserDetails(c echo.Context, sess *sessions.Session) 
 		sess.Values["email"],
 	).Scan(&user.Name, &user.Email, &user.AuthProvider, &user.IsAdmin, &user.IsPremium, &user.IsDeleted); err != nil {
 		if err == sql.ErrNoRows {
-			res, err := Tx.Exec("INSERT INTO users (name, email, auth_provider, is_admin, is_premium, is_deleted) VALUES ($1, $2, $3, $4, $5, $6)",
-				sess.Values["name"], sess.Values["email"], sess.Values["auth_provider"], sess.Values["is_admin"], sess.Values["is_premium"], sess.Values["is_deleted"])
+			res, err := Tx.Exec(
+				"INSERT INTO users (name, email, auth_provider, is_admin, is_premium, is_deleted) VALUES ($1, $2, $3, $4, $5, $6)",
+				sess.Values["name"],
+				sess.Values["email"],
+				sess.Values["auth_provider"],
+				sess.Values["is_admin"],
+				sess.Values["is_premium"],
+				sess.Values["is_deleted"])
 
 			if err != nil {
 				return echo.NewHTTPError(http.StatusInternalServerError, map[string]any{
