@@ -34,8 +34,6 @@ watch:
 	    fi; \
 	fi
 
-.PHONY: all build run test clean
-
 migrate-up:
 	@echo "Migrating up..."
 	@go run cmd/migrate/main.go up
@@ -43,7 +41,3 @@ migrate-up:
 migrate-down:
 	@echo "Migrating down..."
 	@go run cmd/migrate/main.go down
-
-migrate-create:
-	@echo "Creating migration..."
-	@go run cmd/migrate/main.go create
