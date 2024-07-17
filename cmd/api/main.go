@@ -54,6 +54,7 @@ func main() {
 		),
 		fx.Invoke(
 			utils.LoadEnv,
+			db.InitMinioClient,
 			initServer,
 		),
 	).Run()

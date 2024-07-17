@@ -2,7 +2,7 @@ package models
 
 import "time"
 
-type Link struct {
+type File struct {
 	UserID      string `json:"userId" db:"user_id"`
 	ShortCode   string `json:"shortCode" db:"short_code"`
 	OrgFileName string `json:"orgFileName" db:"org_file_name"`
