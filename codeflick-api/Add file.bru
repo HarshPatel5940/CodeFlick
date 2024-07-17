@@ -1,0 +1,17 @@
+meta {
+  name: Add file
+  type: http
+  seq: 2
+}
+
+post {
+  url: http://localhost:8080/api/gists/new
+  body: multipartForm
+  auth: none
+}
+
+body:multipart-form {
+  email: harshnpatel9@gmail.com
+  fileName: fosshack
+  file: @file(/Users/harshnpatel/Downloads/FossHack-srm.jpg)
+}

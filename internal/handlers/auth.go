@@ -85,6 +85,7 @@ func (ah AuthHandler) GoogleOauthCallback(c echo.Context) error {
 		HttpOnly: true,
 	}
 
+	sess.Values["user_id"] = user.UserID
 	sess.Values["name"] = user.Name
 	sess.Values["email"] = user.Email
 	sess.Values["auth_provider"] = user.Provider
@@ -128,11 +129,10 @@ func (ah AuthHandler) GetSessionDetails(c echo.Context) error {
 		"success": true,
 		"message": "Session details fetched successfully!",
 		"data": map[string]any{
-			"name":          sess.Values["name"],
-			"email":         sess.Values["email"],
-			"auth_provider": sess.Values["auth_provider"],
-			"is_admin":      sess.Values["is_admin"],
-			"is_premium":    sess.Values["is_premium"],
+			"name":       sess.Values["name"],
+			"email":      sess.Values["email"],
+			"is_admin":   sess.Values["is_admin"],
+			"is_premium": sess.Values["is_premium"],
 		}})
 }
 
@@ -158,7 +158,8 @@ func (ah AuthHandler) UpsertUserDetails(c echo.Context, sess *sessions.Session) 
 	).Scan(&user.Name, &user.Email, &user.AuthProvider, &user.IsAdmin, &user.IsPremium, &user.IsDeleted); err != nil {
 		if err == sql.ErrNoRows {
 			res, err := Tx.Exec(
-				"INSERT INTO users (name, email, auth_provider, is_admin, is_premium, is_deleted) VALUES ($1, $2, $3, $4, $5, $6)",
+				"INSERT INTO users (id, name, email, auth_provider, is_admin, is_premium, is_deleted) VALUES ($1, $2, $3, $4, $5, $6, $7)",
+				sess.Values["user_id"],
 				sess.Values["name"],
 				sess.Values["email"],
 				sess.Values["auth_provider"],

@@ -5,10 +5,10 @@ import (
 	"fmt"
 	"log"
 	"net/http"
-	"time"
 
 	"github.com/HarshPatel5940/CodeFlick/internal/utils"
 	"github.com/jmoiron/sqlx"
+	"github.com/labstack/echo-contrib/session"
 	"github.com/labstack/echo/v4"
 	"github.com/minio/minio-go/v7"
 )
@@ -25,11 +25,19 @@ func NewFilesHandler(db *sqlx.DB, minio *minio.Client) *FileStorageHandler {
 }
 
 func (fh FileStorageHandler) UploadFile(c echo.Context) error {
-	user := c.FormValue("user")
-	fileName := c.FormValue("name")
-	// email := c.FormValue("email")
+	sess, err := session.Get("session", c)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, map[string]any{
+			"success": false,
+			"message": "Failed to get session!",
+			"details": err.Error(),
+		})
+	}
+	email := sess.Values["email"].(string)
 
+	fileName := c.FormValue("fileName")
 	file, err := c.FormFile("file")
+
 	if err != nil {
 		return err
 	}
@@ -39,14 +47,18 @@ func (fh FileStorageHandler) UploadFile(c echo.Context) error {
 	}
 	defer src.Close()
 
-	location := fmt.Sprintf("%s/%s", user, fileName)
+	location := fmt.Sprintf("%s/%s", email, fileName)
 
 	fileInfo, err := fh.minio.PutObject(context.Background(),
 		MinioBucketName,
 		location,
 		src,
 		file.Size,
-		minio.PutObjectOptions{ContentType: file.Header.Get("Content-Type"), Expires: <-time.After(time.Hour * 24 * 30)})
+		minio.PutObjectOptions{ContentType: file.Header.Get("Content-Type")})
+	// 	UserMetadata: map[string]string{         <- Will this leak user mail along with the file?
+	// 	"email": email,
+	// }
+	// Expires: <-time.After(time.Hour * 24 * 30) <- I thought of keeping expiring objects but change of plans i guess
 
 	if err != nil {
 		log.Fatalln(err)

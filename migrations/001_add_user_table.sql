@@ -1,8 +1,9 @@
 -- +goose Up
 -- +goose StatementBegin
 CREATE TABLE IF NOT EXISTS users (
+    id numeric primary key,
     name text not null,
-    email text primary key,
+    email text not null,
     auth_provider text not null,
     is_admin boolean not null default false,
     is_premium boolean not null default false,

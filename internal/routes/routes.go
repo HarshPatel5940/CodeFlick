@@ -36,7 +36,7 @@ func SetupRoutes(e *echo.Group,
 	e.GET("/auth/session", AuthHandler.GetSessionDetails)
 
 	// File Routes
-	e.GET("/buckets", FileStorageHandler.ListBuckets)
 	e.POST("/gists/new", FileStorageHandler.UploadFile)
+	e.GET("/admin/buckets", FileStorageHandler.ListBuckets)
 
 }
