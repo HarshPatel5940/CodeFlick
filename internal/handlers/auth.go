@@ -3,7 +3,6 @@ package handlers
 import (
 	"context"
 	"database/sql"
-	"log"
 	"log/slog"
 	"net/http"
 	"strconv"
@@ -54,17 +53,23 @@ func InitialiseAuth() {
 }
 
 func (ah AuthHandler) GoogleOauthLogin(c echo.Context) error {
+	sess, err := session.Get("session", c)
 
-	// try to get the user without re-authenticating
-	ctx := context.WithValue(c.Request().Context(), "provider", "google")
-	gothUser, err := gothic.CompleteUserAuth(c.Response(), c.Request().WithContext(ctx))
-	if err != nil {
+	if err != nil || sess.Values["email"] == nil {
+		ctx := context.WithValue(c.Request().Context(), "provider", "google")
 		gothic.BeginAuthHandler(c.Response(), c.Request().WithContext(ctx))
-	} else {
-		log.Println(gothUser)
 	}
 
-	return nil
+	return c.JSON(200, map[string]any{
+		"success": true,
+		"message": "Session details fetched successfully!",
+		"data": map[string]any{
+			"name":      sess.Values["name"],
+			"email":     sess.Values["email"],
+			"isAdmin":   sess.Values["isAdmin"],
+			"isPremium": sess.Values["isPremium"],
+			"isCreated": sess.Values["created_at"],
+		}})
 }
 
 func (ah AuthHandler) GoogleOauthCallback(c echo.Context) error {
@@ -89,16 +94,12 @@ func (ah AuthHandler) GoogleOauthCallback(c echo.Context) error {
 	sess.Values["name"] = user.Name
 	sess.Values["email"] = user.Email
 	sess.Values["auth_provider"] = user.Provider
-	sess.Values["is_admin"] = false
-	sess.Values["is_premium"] = false
-	sess.Values["is_deleted"] = false
+	sess.Values["isAdmin"] = false
+	sess.Values["isPremium"] = false
+	sess.Values["isDeleted"] = false
 
 	if err := ah.UpsertUserDetails(c, sess); err != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, map[string]any{
-			"success": false,
-			"message": "Failed to fetch user details!",
-			"details": err.Error(),
-		})
+		return err
 	}
 
 	if err := sess.Save(c.Request(), c.Response()); err != nil {
@@ -129,10 +130,11 @@ func (ah AuthHandler) GetSessionDetails(c echo.Context) error {
 		"success": true,
 		"message": "Session details fetched successfully!",
 		"data": map[string]any{
-			"name":       sess.Values["name"],
-			"email":      sess.Values["email"],
-			"is_admin":   sess.Values["is_admin"],
-			"is_premium": sess.Values["is_premium"],
+			"name":      sess.Values["name"],
+			"email":     sess.Values["email"],
+			"isAdmin":   sess.Values["is_admin"],
+			"isPremium": sess.Values["is_premium"],
+			"isCreated": sess.Values["created_at"],
 		}})
 }
 
@@ -151,36 +153,43 @@ func (ah AuthHandler) UpsertUserDetails(c echo.Context, sess *sessions.Session) 
 
 	var user models.User
 
-	if err := Tx.QueryRowContext(
-		context.Background(),
-		"SELECT * FROM users WHERE email = $1",
-		sess.Values["email"],
-	).Scan(&user.Name, &user.Email, &user.AuthProvider, &user.IsAdmin, &user.IsPremium, &user.IsDeleted); err != nil {
-		if err == sql.ErrNoRows {
-			res, err := Tx.Exec(
-				"INSERT INTO users (id, name, email, auth_provider, is_admin, is_premium, is_deleted) VALUES ($1, $2, $3, $4, $5, $6, $7)",
-				sess.Values["user_id"],
-				sess.Values["name"],
-				sess.Values["email"],
-				sess.Values["auth_provider"],
-				sess.Values["is_admin"],
-				sess.Values["is_premium"],
-				sess.Values["is_deleted"])
+	query := `
+		INSERT INTO users (id, name, email, auth_provider, is_admin, is_premium, is_deleted)
+		VALUES ($1, $2, $3, $4, $5, $6, $7)
+		ON CONFLICT (id) DO NOTHING
+		RETURNING id, created_at, updated_at;
+		`
 
-			if err != nil {
+	row := Tx.QueryRowContext(
+		context.Background(),
+		query,
+		sess.Values["user_id"],
+		sess.Values["name"],
+		sess.Values["email"],
+		sess.Values["auth_provider"],
+		sess.Values["isAdmin"],
+		sess.Values["isPremium"],
+		sess.Values["isDeleted"],
+	)
+	err = row.Scan(&user.ID, &user.CreatedAt, &user.UpdatedAt)
+
+	if err != nil {
+		if err == sql.ErrNoRows {
+			if err := Tx.QueryRowContext(
+				context.Background(),
+				"SELECT is_admin, is_premium, is_deleted, created_at FROM users WHERE id = $1",
+				sess.Values["user_id"],
+			).Scan(&user.IsAdmin, &user.IsPremium, &user.IsDeleted, &user.CreatedAt); err != nil {
 				return echo.NewHTTPError(http.StatusInternalServerError, map[string]any{
 					"success": false,
-					"message": "Failed to insert user details into PostgreSQL!",
+					"message": "Failed to fetch user details from PostgreSQL!",
 					"details": err.Error(),
 				})
-
 			}
-
-			log.Println(res)
 		} else {
 			return echo.NewHTTPError(http.StatusInternalServerError, map[string]any{
 				"success": false,
-				"message": "Failed to fetch user details from PostgreSQL!",
+				"message": "Failed to insert user details into PostgreSQL!",
 				"details": err.Error(),
 			})
 		}
@@ -194,10 +203,10 @@ func (ah AuthHandler) UpsertUserDetails(c echo.Context, sess *sessions.Session) 
 		})
 	}
 
-	sess.Values["is_admin"] = user.IsAdmin
-	sess.Values["is_premium"] = user.IsPremium
-	sess.Values["is_deleted"] = user.IsDeleted
+	sess.Values["isAdmin"] = user.IsAdmin
+	sess.Values["isPremium"] = user.IsPremium
+	sess.Values["isDeleted"] = user.IsDeleted
+	sess.Values["created_at"] = user.CreatedAt
 
 	return nil
-
 }

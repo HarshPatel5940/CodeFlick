@@ -15,7 +15,7 @@ import (
 	"go.uber.org/fx"
 )
 
-func createServer(
+func CreateServer(
 	FileStorageHandler *handlers.FileStorageHandler, AuthHandler *handlers.AuthHandler, db *sqlx.DB, minio *minio.Client,
 ) *echo.Echo {
 
@@ -29,7 +29,7 @@ func createServer(
 	return app
 }
 
-func initServer(lifecycle fx.Lifecycle, app *echo.Echo) {
+func InitServer(lifecycle fx.Lifecycle, app *echo.Echo) {
 	lifecycle.Append(fx.Hook{
 		OnStart: func(context.Context) error {
 			routes.StartTime = time.Now()
@@ -50,12 +50,12 @@ func main() {
 			handlers.NewAuthHandler,
 			db.CreatePostgresConnection,
 			db.CreateMinioClient,
-			createServer,
+			CreateServer,
 		),
 		fx.Invoke(
 			utils.LoadEnv,
 			db.InitMinioClient,
-			initServer,
+			InitServer,
 		),
 	).Run()
 }
