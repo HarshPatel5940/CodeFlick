@@ -6,6 +6,7 @@ require (
 	github.com/gorilla/sessions v1.2.2
 	github.com/joho/godotenv v1.5.1
 	github.com/markbates/goth v1.80.0
+	github.com/oklog/ulid/v2 v2.1.0
 )
 
 require (

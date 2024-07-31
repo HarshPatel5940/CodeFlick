@@ -16,6 +16,7 @@ import (
 	"github.com/markbates/goth"
 	"github.com/markbates/goth/gothic"
 	"github.com/markbates/goth/providers/google"
+	"github.com/oklog/ulid/v2"
 )
 
 type AuthHandler struct {
@@ -90,7 +91,7 @@ func (ah AuthHandler) GoogleOauthCallback(c echo.Context) error {
 		HttpOnly: true,
 	}
 
-	sess.Values["user_id"] = user.UserID
+	sess.Values["user_id"] = ulid.Make().String()
 	sess.Values["name"] = user.Name
 	sess.Values["email"] = user.Email
 	sess.Values["auth_provider"] = user.Provider
