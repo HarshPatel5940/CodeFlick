@@ -23,8 +23,10 @@ func CreateServer(
 	// TODO: add middleware for route body validator
 	middlewares.SetupMiddlewares(app)
 
+	routes.SetupPagesRoutes(app)
+
 	api := app.Group("/api")
-	routes.SetupRoutes(api, FileStorageHandler, AuthHandler)
+	routes.SetupAPIRoutes(api, FileStorageHandler, AuthHandler)
 
 	return app
 }

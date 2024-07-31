@@ -24,7 +24,7 @@ func root(c echo.Context) error {
 	})
 }
 
-func SetupRoutes(e *echo.Group,
+func SetupAPIRoutes(e *echo.Group,
 	FileStorageHandler *handlers.FileStorageHandler,
 	AuthHandler *handlers.AuthHandler,
 ) {
@@ -39,4 +39,8 @@ func SetupRoutes(e *echo.Group,
 	e.POST("/gists/new", FileStorageHandler.UploadFile)
 	e.GET("/admin/buckets", FileStorageHandler.ListBuckets)
 
+}
+
+func SetupPagesRoutes(app *echo.Echo) {
+	app.Static("/test", "internal/public/")
 }
