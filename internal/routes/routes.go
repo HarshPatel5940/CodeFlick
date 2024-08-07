@@ -13,7 +13,7 @@ var StartTime time.Time
 func root(c echo.Context) error {
 	return c.JSON(http.StatusOK, map[string]any{
 		"message": []string{
-			"Hello, World! This is CodeFlick API"
+			"Hello, World! This is CodeFlick API",
 			"Codeflick is an pastebin alternative to distribute your gists / Code quickly!",
 		},
 		"my-links": map[string]string{
@@ -47,5 +47,5 @@ func SetupAPIRoutes(e *echo.Group,
 }
 
 func SetupPagesRoutes(app *echo.Echo) {
-	app.Static("/test", "internal/public/")
+	app.File("/test/upload", "internal/public/index.html")
 }
