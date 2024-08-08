@@ -29,7 +29,7 @@ func NewFilesHandler(db *sqlx.DB, minio *minio.Client) *FileStorageHandler {
 	return &FileStorageHandler{db, minio}
 }
 
-func (fh FileStorageHandler) UploadFile(c echo.Context) error {
+func (fh FileStorageHandler) UploadGist(c echo.Context) error {
 	sess, err := session.Get("session", c)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, map[string]any{
@@ -117,6 +117,7 @@ func (fh FileStorageHandler) UploadFile(c echo.Context) error {
 	)
 
 	if err != nil {
+		// TODO: HANDLE FOR CONFLICT ERROR IN A SMART WAY
 		log.Println(err)
 		return echo.NewHTTPError(http.StatusInternalServerError, map[string]any{
 			"success": false,
@@ -134,9 +135,11 @@ func (fh FileStorageHandler) UploadFile(c echo.Context) error {
 	}
 
 	return c.JSON(http.StatusCreated, map[string]any{
+		"success":  true,
+		"message":  "Gist uploaded successfully!",
 		"key":      fileInfo.Key,
 		"fileSize": fileInfo.Size,
-		"fileTag":  fileInfo.ETag,
+		"fileId":   fileInfo.ETag,
 	})
 }
 
@@ -161,5 +164,71 @@ func (fh FileStorageHandler) ListBuckets(c echo.Context) error {
 	return c.JSON(http.StatusOK, map[string]any{
 		"success": true,
 		"message": list,
+	})
+}
+
+func (fh FileStorageHandler) GetGist(c echo.Context) error {
+	// TODO: Complete this logic with public / private logic lateer
+	return nil
+}
+
+func (fh FileStorageHandler) GetGistRaw(c echo.Context) error {
+	// TODO: Complete this logic with public / private logic lateer
+	return nil
+}
+
+func (fh FileStorageHandler) UpdateGist(c echo.Context) error {
+	// GistId := c.Param("id")
+	return nil
+}
+
+func (fh FileStorageHandler) DeleteGist(c echo.Context) error {
+	// Test for edge cases
+	GistId := c.Param("id")
+	var returnGistId string
+
+	if GistId == "" {
+		return echo.NewHTTPError(http.StatusBadRequest, map[string]any{
+			"success": false,
+			"message": "Gist ID is required!",
+		})
+	}
+
+	Tx, err := fh.db.BeginTx(context.Background(), &sql.TxOptions{})
+	if err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, map[string]any{
+			"success": false,
+			"message": "Failed to start a PostgreSQL transaction!",
+			"details": err.Error(),
+		})
+	}
+	defer Tx.Rollback()
+
+	query := `UPDATE gists SET is_deleted = true WHERE file_id = $1 RETURNING file_id;`
+
+	row := Tx.QueryRowContext(context.Background(), query, GistId)
+	err = row.Scan(&returnGistId)
+
+	if err != nil || returnGistId == "" {
+		// TODO: HANDLE logic for not found error
+		return echo.NewHTTPError(http.StatusInternalServerError, map[string]any{
+			"success": false,
+			"message": "Failed to delete gist from database!",
+			"details": err.Error(),
+		})
+	}
+
+	if err := Tx.Commit(); err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, map[string]any{
+			"success": false,
+			"message": "Failed to commit the PostgreSQL transaction!",
+			"details": err.Error(),
+		})
+	}
+
+	return c.JSON(http.StatusOK, map[string]any{
+		"success": true,
+		"message": "Gist deleted successfully!",
+		"fileId":  returnGistId,
 	})
 }

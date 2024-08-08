@@ -157,7 +157,8 @@ func (ah AuthHandler) UpsertUserDetails(c echo.Context, sess *sessions.Session) 
 	query := `
 		INSERT INTO users (id, name, email, auth_provider, is_admin, is_premium, is_deleted)
 		VALUES ($1, $2, $3, $4, $5, $6, $7)
-		ON CONFLICT (id) DO NOTHING
+		ON CONFLICT (email) DO UPDATE
+		SET id = users.id
 		RETURNING id, created_at, updated_at;
 		`
 
