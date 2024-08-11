@@ -10,9 +10,13 @@ post {
   auth: none
 }
 
+headers {
+  Cookie: {{Cookie}}
+}
+
 body:multipart-form {
-  gist_title: fosshack1
-  custom_url: FossieHack
+  gist_title: fosshack
+  custom_url: FossHackIsAwesomee
   is_public: true
   file: @file(/Users/harshnpatel/Downloads/foss.png)
 }
