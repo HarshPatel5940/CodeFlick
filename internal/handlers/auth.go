@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"strconv"
 
+	"github.com/HarshPatel5940/CodeFlick/internal/db"
 	"github.com/HarshPatel5940/CodeFlick/internal/models"
 	"github.com/HarshPatel5940/CodeFlick/internal/utils"
 	"github.com/gorilla/sessions"
@@ -65,23 +66,28 @@ func (ah AuthHandler) GoogleOauthLogin(c echo.Context) error {
 		"success": true,
 		"message": "Session details fetched successfully!",
 		"data": map[string]any{
+			"user_id":   sess.Values["user_id"],
 			"name":      sess.Values["name"],
 			"email":     sess.Values["email"],
 			"isAdmin":   sess.Values["isAdmin"],
 			"isPremium": sess.Values["isPremium"],
-			"isCreated": sess.Values["created_at"],
+			"isDeleted": sess.Values["isDeleted"],
 		}})
 }
 
 func (ah AuthHandler) GoogleOauthCallback(c echo.Context) error {
-	user, err := gothic.CompleteUserAuth(c.Response(), c.Request())
+	GothUser, err := gothic.CompleteUserAuth(c.Response(), c.Request())
 	if err != nil {
 		return err
 	}
 
 	sess, err := session.Get("session", c)
 	if err != nil {
-		return err
+		return echo.NewHTTPError(http.StatusUnauthorized, map[string]any{
+			"success": false,
+			"message": "Failed to get session!",
+			"details": err.Error(),
+		})
 	}
 
 	sess.Options = &sessions.Options{
@@ -91,17 +97,46 @@ func (ah AuthHandler) GoogleOauthCallback(c echo.Context) error {
 		HttpOnly: true,
 	}
 
-	sess.Values["user_id"] = ulid.Make().String()
-	sess.Values["name"] = user.Name
-	sess.Values["email"] = user.Email
-	sess.Values["auth_provider"] = user.Provider
-	sess.Values["isAdmin"] = false
-	sess.Values["isPremium"] = false
-	sess.Values["isDeleted"] = false
+	row := ah.db.QueryRowContext(context.Background(), db.GetUserByEmail, GothUser.Email)
 
-	if err := ah.UpsertUserDetails(c, sess); err != nil {
-		return err
+	var User models.User = models.User{
+		ID:           ulid.Make().String(),
+		Name:         GothUser.Name,
+		Email:        GothUser.Email,
+		AuthProvider: GothUser.Provider,
+		IsAdmin:      false,
+		IsPremium:    false,
+		IsDeleted:    false,
 	}
+
+	if err := row.Scan(&User.ID, &User.Name,
+		&User.Email, &User.AuthProvider, &User.IsAdmin, &User.IsPremium,
+		&User.IsDeleted, &User.CreatedAt, &User.UpdatedAt); err != nil {
+		if err == sql.ErrNoRows {
+			_, err := ah.db.ExecContext(context.Background(), db.InsertUser, User.ID, User.Name, User.Email, User.AuthProvider, User.IsAdmin, User.IsPremium, User.IsDeleted)
+			if err != nil {
+				return echo.NewHTTPError(http.StatusInternalServerError, map[string]any{
+					"success": false,
+					"message": "Failed to insert user details!",
+					"details": err.Error(),
+				})
+			}
+		} else {
+			return echo.NewHTTPError(http.StatusInternalServerError, map[string]any{
+				"success": false,
+				"message": "Failed to get user details!",
+				"details": err.Error(),
+			})
+		}
+	}
+
+	sess.Values["user_id"] = User.ID
+	sess.Values["name"] = User.Name
+	sess.Values["email"] = User.Email
+	sess.Values["auth_provider"] = User.AuthProvider
+	sess.Values["isAdmin"] = User.IsAdmin
+	sess.Values["isPremium"] = User.IsPremium
+	sess.Values["isDeleted"] = User.IsDeleted
 
 	if err := sess.Save(c.Request(), c.Response()); err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, map[string]any{
@@ -120,7 +155,7 @@ func (ah AuthHandler) GoogleOauthCallback(c echo.Context) error {
 func (ah AuthHandler) GetSessionDetails(c echo.Context) error {
 	sess, err := session.Get("session", c)
 	if err != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, map[string]any{
+		return echo.NewHTTPError(http.StatusUnauthorized, map[string]any{
 			"success": false,
 			"message": "Failed to get session!",
 			"details": err.Error(),
@@ -131,84 +166,11 @@ func (ah AuthHandler) GetSessionDetails(c echo.Context) error {
 		"success": true,
 		"message": "Session details fetched successfully!",
 		"data": map[string]any{
+			"user_id":   sess.Values["user_id"],
 			"name":      sess.Values["name"],
 			"email":     sess.Values["email"],
-			"isAdmin":   sess.Values["is_admin"],
-			"isPremium": sess.Values["is_premium"],
-			"isCreated": sess.Values["created_at"],
+			"isAdmin":   sess.Values["isAdmin"],
+			"isPremium": sess.Values["isPremium"],
+			"isDeleted": sess.Values["isDeleted"],
 		}})
-}
-
-func (ah AuthHandler) UpsertUserDetails(c echo.Context, sess *sessions.Session) error {
-	Tx, err := ah.db.BeginTx(context.Background(), &sql.TxOptions{})
-
-	if err != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, map[string]any{
-			"success": false,
-			"message": "Failed to start a PostgreSQL transaction!",
-			"details": err.Error(),
-		})
-	}
-
-	defer Tx.Rollback()
-
-	var user models.User
-
-	query := `
-		INSERT INTO users (id, name, email, auth_provider, is_admin, is_premium, is_deleted)
-		VALUES ($1, $2, $3, $4, $5, $6, $7)
-		ON CONFLICT (email) DO UPDATE
-		SET id = users.id
-		RETURNING id, created_at, updated_at;
-		`
-
-	row := Tx.QueryRowContext(
-		context.Background(),
-		query,
-		sess.Values["user_id"],
-		sess.Values["name"],
-		sess.Values["email"],
-		sess.Values["auth_provider"],
-		sess.Values["isAdmin"],
-		sess.Values["isPremium"],
-		sess.Values["isDeleted"],
-	)
-	err = row.Scan(&user.ID, &user.CreatedAt, &user.UpdatedAt)
-
-	if err != nil {
-		if err == sql.ErrNoRows {
-			if err := Tx.QueryRowContext(
-				context.Background(),
-				"SELECT is_admin, is_premium, is_deleted, created_at FROM users WHERE id = $1",
-				sess.Values["user_id"],
-			).Scan(&user.IsAdmin, &user.IsPremium, &user.IsDeleted, &user.CreatedAt); err != nil {
-				return echo.NewHTTPError(http.StatusInternalServerError, map[string]any{
-					"success": false,
-					"message": "Failed to fetch user details from PostgreSQL!",
-					"details": err.Error(),
-				})
-			}
-		} else {
-			return echo.NewHTTPError(http.StatusInternalServerError, map[string]any{
-				"success": false,
-				"message": "Failed to insert user details into PostgreSQL!",
-				"details": err.Error(),
-			})
-		}
-	}
-
-	if err := Tx.Commit(); err != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, map[string]any{
-			"success": false,
-			"message": "Failed to commit the PostgreSQL transaction!",
-			"details": err.Error(),
-		})
-	}
-
-	sess.Values["isAdmin"] = user.IsAdmin
-	sess.Values["isPremium"] = user.IsPremium
-	sess.Values["isDeleted"] = user.IsDeleted
-	sess.Values["created_at"] = user.CreatedAt
-
-	return nil
 }

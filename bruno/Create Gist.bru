@@ -1,5 +1,5 @@
 meta {
-  name: Add file
+  name: Create Gist
   type: http
   seq: 2
 }
@@ -11,7 +11,8 @@ post {
 }
 
 body:multipart-form {
-  email: harshnpatel9@gmail.com
-  fileName: fosshack
-  file: @file(/Users/harshnpatel/Downloads/FossHack-srm.jpg)
+  gist_title: fosshack1
+  custom_url: FossieHack
+  is_public: true
+  file: @file(/Users/harshnpatel/Downloads/foss.png)
 }

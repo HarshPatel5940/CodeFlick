@@ -36,6 +36,7 @@ func SetupAPIRoutes(e *echo.Group,
 	e.GET("/auth/session", AuthHandler.GetSessionDetails)
 
 	// File Routes
+	// e.GET("/gists", FileStorageHandler.ListGists)
 	e.POST("/gists/new", FileStorageHandler.UploadGist)
 	e.GET("/gists/:id", FileStorageHandler.GetGist)
 	e.GET("/gists/:id/raw", FileStorageHandler.GetGistRaw)
