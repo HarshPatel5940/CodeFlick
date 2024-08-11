@@ -33,16 +33,15 @@ func NewFilesHandler(db *sqlx.DB, minio *minio.Client) *FileStorageHandler {
 
 func (fh FileStorageHandler) UploadGist(c echo.Context) error {
 	sess, err := session.Get("session", c)
-	if err != nil {
+	if err != nil || sess.Values["user_id"] == nil || sess.Values["user_id"] == "" {
 		return echo.NewHTTPError(http.StatusUnauthorized, map[string]any{
 			"success": false,
 			"message": "Failed to get session!",
-			"details": err.Error(),
 		})
 	}
 
 	var Gist models.Gist
-	Gist.UserID = sess.Values["user_id"].(string)
+	Gist.UserID = fmt.Sprint(sess.Values["user_id"])
 	currentTime := time.Now().Unix()
 
 	file, err := c.FormFile("file")
@@ -187,7 +186,7 @@ func (fh FileStorageHandler) GetGistRaw(c echo.Context) error {
 func (fh FileStorageHandler) UpdateGist(c echo.Context) error {
 	sess, err := session.Get("session", c)
 	currentTime := time.Now()
-	if err != nil {
+	if err != nil || sess.Values["user_id"] == nil || sess.Values["user_id"] == "" {
 		return echo.NewHTTPError(http.StatusUnauthorized, map[string]any{
 			"success": false,
 			"message": "Failed to get session!",
@@ -196,7 +195,7 @@ func (fh FileStorageHandler) UpdateGist(c echo.Context) error {
 	}
 
 	var Gist models.Gist
-	Gist.UserID = sess.Values["user_id"].(string)
+	Gist.UserID = fmt.Sprint(sess.Values["user_id"])
 	Gist.FileID = c.Param("id")
 
 	if Gist.FileID == "" {
@@ -297,9 +296,9 @@ func (fh FileStorageHandler) UpdateGist(c echo.Context) error {
 
 func (fh FileStorageHandler) DeleteGist(c echo.Context) error {
 	sess, err := session.Get("session", c)
-	UserID := sess.Values["user_id"].(string)
+	UserID := fmt.Sprint(sess.Values["user_id"])
 
-	if err != nil {
+	if err != nil || sess.Values["user_id"] == nil || sess.Values["user_id"] == "" {
 		return echo.NewHTTPError(http.StatusUnauthorized, map[string]any{
 			"success": false,
 			"message": "Failed to get session!",
