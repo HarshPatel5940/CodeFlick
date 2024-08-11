@@ -1,14 +1,17 @@
 package models
 
-import "time"
+import (
+	"database/sql"
+	"time"
+)
 
 type Gist struct {
 	FileID string `json:"fileId" db:"file_id"`
 	UserID string `json:"userId" db:"user_id"`
 
-	GistTitle  string `json:"gistTitle" db:"gist_title"`
-	ForkedFrom string `json:"forkedFrom" db:"forked_from"`
-	ShortUrl   string `json:"shortUrl" db:"short_url"`
+	GistTitle  string         `json:"gistTitle" db:"gist_title"`
+	ForkedFrom sql.NullString `json:"forkedFrom" db:"forked_from"`
+	ShortUrl   string         `json:"shortUrl" db:"short_url"`
 
 	ViewCount int  `json:"viewCount" db:"view_count"`
 	IsPublic  bool `json:"isEnabled" db:"is_enabled"`

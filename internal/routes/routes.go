@@ -36,11 +36,17 @@ func SetupAPIRoutes(e *echo.Group,
 	e.GET("/auth/session", AuthHandler.GetSessionDetails)
 
 	// File Routes
-	e.POST("/gists/new", FileStorageHandler.UploadFile)
+	// e.GET("/gists", FileStorageHandler.ListGists)
+	e.POST("/gists/new", FileStorageHandler.UploadGist)
+	e.GET("/gists/:id", FileStorageHandler.GetGist)
+	e.GET("/gists/:id/raw", FileStorageHandler.GetGistRaw)
+	e.PUT("/gists/:id", FileStorageHandler.UpdateGist)
+	e.DELETE("/gists/:id", FileStorageHandler.DeleteGist)
+
 	e.GET("/admin/buckets", FileStorageHandler.ListBuckets)
 
 }
 
 func SetupPagesRoutes(app *echo.Echo) {
-	app.Static("/test", "internal/public/")
+	app.File("/test/upload", "internal/public/index.html")
 }

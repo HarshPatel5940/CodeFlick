@@ -1,0 +1,17 @@
+meta {
+  name: Update Gist
+  type: http
+  seq: 5
+}
+
+put {
+  url: http://localhost:8080/api/gists/01J503AA3BX7GGA7123K2ZSBWM
+  body: multipartForm
+  auth: none
+}
+
+body:multipart-form {
+  gist_title: fosshack
+  custom_url: FossieHack-zindabad
+  is_public: true
+}

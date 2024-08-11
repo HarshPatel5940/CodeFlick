@@ -42,7 +42,7 @@ func GetServerAddress() string {
 	port := GetEnv("PORT", "8080")
 	env := GetEnv("ENV", "development")
 
-	if env != "production" {
+	if env != "production" && env != "prod" && env != "staging" && env != "docker" {
 		return fmt.Sprintf("localhost:%s", port)
 	}
 

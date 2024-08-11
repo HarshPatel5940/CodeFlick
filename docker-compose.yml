@@ -5,6 +5,10 @@ services:
       target: final
     ports:
       - 8080:8080
+    expose:
+      - 8080
+    networks:
+      - codeflick-network
     depends_on:
       codeflick_minio:
         condition: service_healthy
