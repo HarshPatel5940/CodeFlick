@@ -5,18 +5,14 @@ meta {
 }
 
 post {
-  url: http://localhost:8080/api/gists/new
+  url: {{BaseUrl}}/gists/new
   body: multipartForm
   auth: none
 }
 
-headers {
-  Cookie: {{Cookie}}
-}
-
 body:multipart-form {
   gist_title: fosshack
-  custom_url: FossHackIsAwesomee
+  custom_url: CoolBoyy
   is_public: true
   file: @file(/Users/harshnpatel/Downloads/foss.png)
 }

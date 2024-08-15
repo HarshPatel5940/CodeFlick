@@ -3,9 +3,13 @@ package handlers
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"fmt"
+	"io"
 	"log/slog"
+	"mime/multipart"
 	"net/http"
+	"net/textproto"
 	"strconv"
 	"strings"
 	"time"
@@ -43,6 +47,7 @@ func (fh FileStorageHandler) UploadGist(c echo.Context) error {
 	var Gist models.Gist
 	Gist.UserID = fmt.Sprint(sess.Values["user_id"])
 	currentTime := time.Now().Unix()
+	Gist.FileID = ulid.Make().String()
 
 	file, err := c.FormFile("file")
 	if err != nil {
@@ -78,16 +83,11 @@ func (fh FileStorageHandler) UploadGist(c echo.Context) error {
 	}
 	defer src.Close()
 
-	fileNameParts := strings.SplitAfter(file.Filename, ".")
+	fileName := fmt.Sprintf("%s/%s", Gist.UserID, Gist.FileID)
 
-	location := fmt.Sprintf("%s/%d.%s",
-		Gist.UserID, currentTime, fileNameParts[len(fileNameParts)-1],
-	)
-
-	Gist.FileID = ulid.Make().String()
 	fileInfo, err := fh.minio.PutObject(context.Background(),
 		MinioBucketName,
-		location,
+		fileName,
 		src,
 		file.Size,
 		minio.PutObjectOptions{ContentType: file.Header.Get("Content-Type"), UserMetadata: map[string]string{"fileId": Gist.FileID}})
@@ -150,6 +150,27 @@ func (fh FileStorageHandler) UploadGist(c echo.Context) error {
 }
 
 func (fh FileStorageHandler) ListBuckets(c echo.Context) error {
+	sess, err := session.Get("session", c)
+
+	if err != nil || sess.Values["user_id"] == nil || sess.Values["user_id"] == "" {
+		return echo.NewHTTPError(http.StatusUnauthorized, map[string]any{
+			"success": false,
+			"message": "Failed to get session!",
+		})
+	}
+
+	IsAdmin, err := strconv.ParseBool(c.FormValue("is_public"))
+	if err != nil {
+		IsAdmin = false
+	}
+
+	if !IsAdmin {
+		return echo.NewHTTPError(http.StatusUnauthorized, map[string]any{
+			"success": false,
+			"message": "You are not authorized to view this page!",
+		})
+	}
+
 	list, err := fh.minio.ListBuckets(context.Background())
 	if err != nil {
 		resp := minio.ToErrorResponse(err)
@@ -174,13 +195,152 @@ func (fh FileStorageHandler) ListBuckets(c echo.Context) error {
 }
 
 func (fh FileStorageHandler) GetGist(c echo.Context) error {
-	// TODO: Complete this logic with public / private logic lateer
-	return nil
-}
+	var Gist models.Gist
+	GistUrl := c.Param("id")
+	GistID := c.QueryParam("gid")
+	if GistUrl == "" {
+		return echo.NewHTTPError(http.StatusNotFound, map[string]any{
+			"success": false,
+			"message": "Gist ID is required! Not Found!",
+		})
+	}
 
-func (fh FileStorageHandler) GetGistRaw(c echo.Context) error {
-	// TODO: Complete this logic with public / private logic lateer
-	return nil
+	Tx, err := fh.db.BeginTx(context.Background(), &sql.TxOptions{})
+	if err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, map[string]any{
+			"success": false,
+			"message": "Failed to start a PostgreSQL transaction!",
+			"details": err.Error(),
+		})
+	}
+	defer Tx.Rollback()
+
+	orgGistRow := fh.db.QueryRowContext(context.Background(), db.GetGistByShortURL, GistUrl)
+	err = orgGistRow.Scan(&Gist.FileID, &Gist.UserID, &Gist.ForkedFrom, &Gist.GistTitle, &Gist.ShortUrl,
+		&Gist.ViewCount, &Gist.IsPublic, &Gist.IsDeleted, &Gist.CreatedAt, &Gist.UpdatedAt)
+
+	if err := Tx.Commit(); err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, map[string]any{
+			"success": false,
+			"message": "Failed to commit the PostgreSQL transaction!",
+			"details": err.Error(),
+		})
+	}
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return echo.NewHTTPError(http.StatusNotFound, map[string]any{
+				"success": false,
+				"message": "Gist not found!",
+				"details": err.Error(),
+			})
+		}
+		return echo.NewHTTPError(http.StatusInternalServerError, map[string]any{
+			"success": false,
+			"message": "Failed to get gist from database!",
+			"details": err.Error(),
+		})
+	}
+
+	if Gist.IsDeleted {
+		return echo.NewHTTPError(http.StatusNotFound, map[string]any{
+			"success": false,
+			"message": "Gist not found!",
+		})
+	}
+
+	if !Gist.IsPublic {
+		if Gist.FileID != GistID {
+			return echo.NewHTTPError(http.StatusUnauthorized, map[string]any{
+				"success": false,
+				"message": "You are not authorized to get this gist!",
+			})
+		}
+	}
+	fileName := fmt.Sprintf("%s/%s", Gist.UserID, Gist.FileID)
+
+	gistData, err := fh.minio.GetObject(context.Background(), MinioBucketName, fileName, minio.GetObjectOptions{})
+	if err != nil {
+		resp := minio.ToErrorResponse(err)
+
+		if resp.Code != "" {
+			return echo.NewHTTPError(http.StatusInternalServerError, map[string]any{
+				"success": false,
+				"Message": resp.Message,
+				"Details": resp,
+			})
+		}
+		return echo.NewHTTPError(http.StatusInternalServerError, map[string]any{
+			"success": false,
+			"Message": err.Error(),
+		})
+	}
+
+	gistStat, err := gistData.Stat()
+	if err != nil {
+		resp := minio.ToErrorResponse(err)
+		if resp.Code != "" {
+			return echo.NewHTTPError(http.StatusInternalServerError, map[string]any{
+				"success": false,
+				"Message": resp.Message,
+				"Details": resp,
+			})
+		}
+		return echo.NewHTTPError(http.StatusInternalServerError, map[string]any{
+			"success": false,
+			"Message": err.Error(),
+		})
+	}
+
+	// Create a pipe to write the multipart data
+	pr, pw := io.Pipe()
+
+	// Create a multipart writer
+	writer := multipart.NewWriter(pw)
+
+	go func() {
+		defer pw.Close()
+		defer writer.Close()
+
+		// Write Gist metadata
+		metadataHeader := textproto.MIMEHeader{}
+		metadataHeader.Set("Content-Disposition", `form-data; name="metadata"`)
+		metadataHeader.Set("Content-Type", "application/json")
+		metadataPart, err := writer.CreatePart(metadataHeader)
+		if err != nil {
+			pw.CloseWithError(err)
+			return
+		}
+		json.NewEncoder(metadataPart).Encode(map[string]interface{}{
+			"FileID":     Gist.FileID,
+			"UserID":     Gist.UserID,
+			"ForkedFrom": Gist.ForkedFrom,
+			"GistTitle":  Gist.GistTitle,
+			"ShortUrl":   Gist.ShortUrl,
+			"ViewCount":  Gist.ViewCount,
+			"IsPublic":   Gist.IsPublic,
+			"CreatedAt":  Gist.CreatedAt,
+			"UpdatedAt":  Gist.UpdatedAt,
+		})
+
+		// Write Gist file content
+		fileHeader := textproto.MIMEHeader{}
+		fileHeader.Set("Content-Disposition", fmt.Sprintf(`form-data; name="file"; filename="%s"`, Gist.GistTitle))
+		fileHeader.Set("Content-Type", gistStat.ContentType)
+		filePart, err := writer.CreatePart(fileHeader)
+		if err != nil {
+			pw.CloseWithError(err)
+			return
+		}
+		_, err = io.Copy(filePart, gistData)
+		if err != nil {
+			pw.CloseWithError(err)
+			return
+		}
+	}()
+
+	c.Response().Header().Set("Content-Type", writer.FormDataContentType())
+
+	return c.Stream(http.StatusOK, writer.FormDataContentType(), pr)
 }
 
 func (fh FileStorageHandler) UpdateGist(c echo.Context) error {
@@ -190,7 +350,6 @@ func (fh FileStorageHandler) UpdateGist(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusUnauthorized, map[string]any{
 			"success": false,
 			"message": "Failed to get session!",
-			"details": err.Error(),
 		})
 	}
 
@@ -302,7 +461,6 @@ func (fh FileStorageHandler) DeleteGist(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusUnauthorized, map[string]any{
 			"success": false,
 			"message": "Failed to get session!",
-			"details": err.Error(),
 		})
 	}
 	GistId := c.Param("id")
