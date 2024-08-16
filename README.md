@@ -1,2 +1,2 @@
 # CodeFlick
-Flick it, share it! Open-source PasteBin for the dev community.
+Flick it, share it! Open-source Gists for the dev community.

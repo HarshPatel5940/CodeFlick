@@ -86,7 +86,6 @@ func (ah AuthHandler) GoogleOauthCallback(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusUnauthorized, map[string]any{
 			"success": false,
 			"message": "Failed to get session!",
-			"details": err.Error(),
 		})
 	}
 
@@ -142,7 +141,6 @@ func (ah AuthHandler) GoogleOauthCallback(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusInternalServerError, map[string]any{
 			"success": false,
 			"message": "Failed to save session!",
-			"details": err.Error(),
 		})
 	}
 
@@ -158,7 +156,6 @@ func (ah AuthHandler) GetSessionDetails(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusUnauthorized, map[string]any{
 			"success": false,
 			"message": "Failed to get session!",
-			"details": err.Error(),
 		})
 	}
 
