@@ -1,15 +1,14 @@
 package handlers
 
 import (
+	"bytes"
 	"context"
 	"database/sql"
 	"encoding/json"
 	"fmt"
 	"io"
 	"log/slog"
-	"mime/multipart"
 	"net/http"
-	"net/textproto"
 	"strconv"
 	"strings"
 	"time"
@@ -55,6 +54,13 @@ func (fh FileStorageHandler) UploadGist(c echo.Context) error {
 			"success": false,
 			"message": "No File Provided for the gist!",
 			"details": err.Error(),
+		})
+	}
+
+	if !strings.Contains(file.Header.Get("Content-Type"), "text") {
+		return echo.NewHTTPError(http.StatusBadRequest, map[string]any{
+			"success": false,
+			"message": "Only text files are allowed!",
 		})
 	}
 
@@ -291,56 +297,43 @@ func (fh FileStorageHandler) GetGist(c echo.Context) error {
 		})
 	}
 
-	// Create a pipe to write the multipart data
-	pr, pw := io.Pipe()
-
-	// Create a multipart writer
-	writer := multipart.NewWriter(pw)
-
-	go func() {
-		defer pw.Close()
-		defer writer.Close()
-
-		// Write Gist metadata
-		metadataHeader := textproto.MIMEHeader{}
-		metadataHeader.Set("Content-Disposition", `form-data; name="metadata"`)
-		metadataHeader.Set("Content-Type", "application/json")
-		metadataPart, err := writer.CreatePart(metadataHeader)
-		if err != nil {
-			pw.CloseWithError(err)
-			return
-		}
-		json.NewEncoder(metadataPart).Encode(map[string]interface{}{
-			"FileID":     Gist.FileID,
-			"UserID":     Gist.UserID,
-			"ForkedFrom": Gist.ForkedFrom,
-			"GistTitle":  Gist.GistTitle,
-			"ShortUrl":   Gist.ShortUrl,
-			"ViewCount":  Gist.ViewCount,
-			"IsPublic":   Gist.IsPublic,
-			"CreatedAt":  Gist.CreatedAt,
-			"UpdatedAt":  Gist.UpdatedAt,
+	metadataJSON, err := json.Marshal(map[string]interface{}{
+		"UserID":     Gist.UserID,
+		"ForkedFrom": Gist.ForkedFrom,
+		"GistTitle":  Gist.GistTitle,
+		"ShortUrl":   Gist.ShortUrl,
+		"ViewCount":  Gist.ViewCount,
+		"IsPublic":   Gist.IsPublic,
+		"CreatedAt":  Gist.CreatedAt,
+		"UpdatedAt":  Gist.UpdatedAt,
+	})
+	if err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, map[string]any{
+			"success": false,
+			"message": "Failed to marshal metadata",
+			"details": err.Error(),
 		})
+	}
 
-		// Write Gist file content
-		fileHeader := textproto.MIMEHeader{}
-		fileHeader.Set("Content-Disposition", fmt.Sprintf(`form-data; name="file"; filename="%s"`, Gist.GistTitle))
-		fileHeader.Set("Content-Type", gistStat.ContentType)
-		filePart, err := writer.CreatePart(fileHeader)
-		if err != nil {
-			pw.CloseWithError(err)
-			return
-		}
-		_, err = io.Copy(filePart, gistData)
-		if err != nil {
-			pw.CloseWithError(err)
-			return
-		}
-	}()
+	// Set response headers
+	c.Response().Header().Set("Content-Type", "application/octet-stream")
+	c.Response().Header().Set("X-Metadata-Length", strconv.Itoa(len(metadataJSON)))
+	c.Response().Header().Set("X-Metadata", string(metadataJSON))
+	c.Response().Header().Set("Content-Length", strconv.FormatInt(gistStat.Size, 10))
 
-	c.Response().Header().Set("Content-Type", writer.FormDataContentType())
+	// Create a buffer to hold the full response
+	var buffer bytes.Buffer
 
-	return c.Stream(http.StatusOK, writer.FormDataContentType(), pr)
+	if _, err := io.Copy(&buffer, gistData); err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, map[string]any{
+			"success": false,
+			"message": "Failed to write file content",
+			"details": err.Error(),
+		})
+	}
+
+	// Return the response using c.Blob()
+	return c.Blob(http.StatusOK, "application/octet-stream", buffer.Bytes())
 }
 
 func (fh FileStorageHandler) UpdateGist(c echo.Context) error {
@@ -374,7 +367,7 @@ func (fh FileStorageHandler) UpdateGist(c echo.Context) error {
 	}
 	defer Tx.Rollback()
 
-	orgGistRow := Tx.QueryRowContext(context.Background(), db.GetGistByID, Gist.FileID, Gist.UserID)
+	orgGistRow := Tx.QueryRowContext(context.Background(), db.GetGistByID, Gist.FileID)
 	err = orgGistRow.Scan(&Gist.FileID, &Gist.UserID, &Gist.ForkedFrom, &Gist.GistTitle, &Gist.ShortUrl,
 		&Gist.ViewCount, &Gist.IsPublic, &Gist.IsDeleted, &Gist.CreatedAt, &Gist.UpdatedAt)
 
@@ -486,8 +479,15 @@ func (fh FileStorageHandler) DeleteGist(c echo.Context) error {
 	row := Tx.QueryRowContext(context.Background(), db.DeleteGist, GistId, UserID, time.Now())
 	err = row.Scan(&returnGistId)
 
-	if err != nil || returnGistId == "" {
-		// TODO: HANDLE logic for not found error
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return echo.NewHTTPError(http.StatusNotFound, map[string]any{
+				"success": false,
+				"message": "Failed to update gist from database! Not Found",
+				"details": err.Error(),
+			})
+		}
+
 		return echo.NewHTTPError(http.StatusInternalServerError, map[string]any{
 			"success": false,
 			"message": "Failed to delete gist from database!",
