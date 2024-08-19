@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/HarshPatel5940/CodeFlick/internal/handlers"
+	"github.com/HarshPatel5940/CodeFlick/internal/middlewares"
 	"github.com/labstack/echo/v4"
 )
 
@@ -36,11 +37,12 @@ func SetupAPIRoutes(e *echo.Group,
 	e.GET("/auth/session", AuthHandler.GetSessionDetails)
 
 	// File Routes
+	gistsRoutes := e.Group("/gists", middlewares.SessionMiddleware)
 	// e.GET("/gists", FileStorageHandler.ListGists)
-	e.POST("/gists/new", FileStorageHandler.UploadGist)
-	e.GET("/gists/:id", FileStorageHandler.GetGist)
-	e.PUT("/gists/:id", FileStorageHandler.UpdateGist)
-	e.DELETE("/gists/:id", FileStorageHandler.DeleteGist)
+	gistsRoutes.POST("/new", FileStorageHandler.UploadGist)
+	gistsRoutes.GET("/:id", FileStorageHandler.GetGist)
+	gistsRoutes.PUT("/:id", FileStorageHandler.UpdateGist)
+	gistsRoutes.DELETE("/:id", FileStorageHandler.DeleteGist)
 
 	e.GET("/admin/buckets", FileStorageHandler.ListBuckets)
 

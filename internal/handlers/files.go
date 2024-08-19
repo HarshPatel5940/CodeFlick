@@ -337,17 +337,9 @@ func (fh FileStorageHandler) GetGist(c echo.Context) error {
 }
 
 func (fh FileStorageHandler) UpdateGist(c echo.Context) error {
-	sess, err := session.Get("session", c)
 	currentTime := time.Now()
-	if err != nil || sess.Values["user_id"] == nil || sess.Values["user_id"] == "" {
-		return echo.NewHTTPError(http.StatusUnauthorized, map[string]any{
-			"success": false,
-			"message": "Failed to get session!",
-		})
-	}
-
 	var Gist models.Gist
-	Gist.UserID = fmt.Sprint(sess.Values["user_id"])
+	var User models.User = c.Get("UserSessionDetails").(models.User)
 	Gist.FileID = c.Param("id")
 
 	if Gist.FileID == "" {
@@ -383,6 +375,13 @@ func (fh FileStorageHandler) UpdateGist(c echo.Context) error {
 			"success": false,
 			"message": "Failed to get gist from database!",
 			"details": err.Error(),
+		})
+	}
+
+	if Gist.UserID != User.ID {
+		return echo.NewHTTPError(http.StatusForbidden, map[string]any{
+			"success": false,
+			"message": "You are not allowed to update this gist!",
 		})
 	}
 
