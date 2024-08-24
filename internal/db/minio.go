@@ -76,3 +76,5 @@ func InitMinioClient(MinioClient *minio.Client) {
 
 	slog.Info("Bucket Initialized Successfully.")
 }
+
+// TODO: Add functions which are required to interact with Minio like GET and PUT objects
