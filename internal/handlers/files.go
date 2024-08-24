@@ -17,7 +17,6 @@ import (
 	"github.com/HarshPatel5940/CodeFlick/internal/models"
 	"github.com/HarshPatel5940/CodeFlick/internal/utils"
 	"github.com/jmoiron/sqlx"
-	"github.com/labstack/echo-contrib/session"
 	"github.com/labstack/echo/v4"
 	"github.com/minio/minio-go/v7"
 	"github.com/oklog/ulid/v2"
@@ -35,16 +34,9 @@ func NewFilesHandler(db *sqlx.DB, minio *minio.Client) *FileStorageHandler {
 }
 
 func (fh FileStorageHandler) UploadGist(c echo.Context) error {
-	sess, err := session.Get("session", c)
-	if err != nil || sess.Values["user_id"] == nil || sess.Values["user_id"] == "" {
-		return echo.NewHTTPError(http.StatusUnauthorized, map[string]any{
-			"success": false,
-			"message": "Failed to get session!",
-		})
-	}
-
+	var User models.User = c.Get("UserSessionDetails").(models.User)
 	var Gist models.Gist
-	Gist.UserID = fmt.Sprint(sess.Values["user_id"])
+	Gist.UserID = User.ID
 	currentTime := time.Now().Unix()
 	Gist.FileID = ulid.Make().String()
 
@@ -156,21 +148,8 @@ func (fh FileStorageHandler) UploadGist(c echo.Context) error {
 }
 
 func (fh FileStorageHandler) ListBuckets(c echo.Context) error {
-	sess, err := session.Get("session", c)
-
-	if err != nil || sess.Values["user_id"] == nil || sess.Values["user_id"] == "" {
-		return echo.NewHTTPError(http.StatusUnauthorized, map[string]any{
-			"success": false,
-			"message": "Failed to get session!",
-		})
-	}
-
-	IsAdmin, err := strconv.ParseBool(c.FormValue("is_public"))
-	if err != nil {
-		IsAdmin = false
-	}
-
-	if !IsAdmin {
+	var User models.User = c.Get("UserSessionDetails").(models.User)
+	if !User.IsAdmin {
 		return echo.NewHTTPError(http.StatusUnauthorized, map[string]any{
 			"success": false,
 			"message": "You are not authorized to view this page!",
@@ -315,13 +294,11 @@ func (fh FileStorageHandler) GetGist(c echo.Context) error {
 		})
 	}
 
-	// Set response headers
 	c.Response().Header().Set("Content-Type", "application/octet-stream")
 	c.Response().Header().Set("X-Metadata-Length", strconv.Itoa(len(metadataJSON)))
 	c.Response().Header().Set("X-Metadata", string(metadataJSON))
 	c.Response().Header().Set("Content-Length", strconv.FormatInt(gistStat.Size, 10))
 
-	// Create a buffer to hold the full response
 	var buffer bytes.Buffer
 
 	if _, err := io.Copy(&buffer, gistData); err != nil {
@@ -332,7 +309,6 @@ func (fh FileStorageHandler) GetGist(c echo.Context) error {
 		})
 	}
 
-	// Return the response using c.Blob()
 	return c.Blob(http.StatusOK, "application/octet-stream", buffer.Bytes())
 }
 
@@ -367,7 +343,8 @@ func (fh FileStorageHandler) UpdateGist(c echo.Context) error {
 		if err == sql.ErrNoRows {
 			return echo.NewHTTPError(http.StatusNotFound, map[string]any{
 				"success": false,
-				"message": "Gist not found!",
+				"message": "Failed to update gist from database!",
+				"details": fmt.Sprintf("Not Found Gists with ID `%s` with the linked User ID `%s`", Gist.FileID, User.ID),
 			})
 		}
 
@@ -410,8 +387,8 @@ func (fh FileStorageHandler) UpdateGist(c echo.Context) error {
 		if err == sql.ErrNoRows {
 			return echo.NewHTTPError(http.StatusNotFound, map[string]any{
 				"success": false,
-				"message": "Failed to update gist from database! Not Found",
-				"details": err.Error(),
+				"message": "Failed to update gist from database!",
+				"details": fmt.Sprintf("Not Found Gists with ID `%s` with the linked User ID `%s`", Gist.FileID, User.ID),
 			})
 		}
 
@@ -438,6 +415,55 @@ func (fh FileStorageHandler) UpdateGist(c echo.Context) error {
 		})
 	}
 
+	file, err := c.FormFile("file")
+	if err != nil {
+		if strings.Contains(err.Error(), "no such file") {
+			return c.JSON(http.StatusOK, map[string]any{
+				"success": true,
+				"message": "Gist Updated successfully!",
+				"fileId":  returnGistId,
+			})
+		}
+		return echo.NewHTTPError(http.StatusBadRequest, map[string]any{
+			"success": false,
+			"message": "Error while reading the file!",
+			"details": err.Error(),
+		})
+	}
+
+	if !strings.Contains(file.Header.Get("Content-Type"), "text") {
+		return echo.NewHTTPError(http.StatusBadRequest, map[string]any{
+			"success": false,
+			"message": "Only text files are allowed!",
+		})
+	}
+	src, err := file.Open()
+	if err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, map[string]any{
+			"success": false,
+			"message": "Error While opening the file!",
+			"details": err.Error(),
+		})
+	}
+	defer src.Close()
+
+	fileName := fmt.Sprintf("%s/%s", Gist.UserID, Gist.FileID)
+
+	_, err = fh.minio.PutObject(context.Background(),
+		MinioBucketName,
+		fileName,
+		src,
+		file.Size,
+		minio.PutObjectOptions{ContentType: file.Header.Get("Content-Type"), UserMetadata: map[string]string{"fileId": Gist.FileID}})
+
+	if err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, map[string]any{
+			"success": false,
+			"message": "Failed to Update File to minio!",
+			"details": minio.ToErrorResponse(err),
+		})
+	}
+
 	return c.JSON(http.StatusOK, map[string]any{
 		"success": true,
 		"message": "Gist Updated successfully!",
@@ -446,15 +472,7 @@ func (fh FileStorageHandler) UpdateGist(c echo.Context) error {
 }
 
 func (fh FileStorageHandler) DeleteGist(c echo.Context) error {
-	sess, err := session.Get("session", c)
-	UserID := fmt.Sprint(sess.Values["user_id"])
-
-	if err != nil || sess.Values["user_id"] == nil || sess.Values["user_id"] == "" {
-		return echo.NewHTTPError(http.StatusUnauthorized, map[string]any{
-			"success": false,
-			"message": "Failed to get session!",
-		})
-	}
+	var User models.User = c.Get("UserSessionDetails").(models.User)
 	GistId := c.Param("id")
 	var returnGistId string
 
@@ -475,15 +493,15 @@ func (fh FileStorageHandler) DeleteGist(c echo.Context) error {
 	}
 	defer Tx.Rollback()
 
-	row := Tx.QueryRowContext(context.Background(), db.DeleteGist, GistId, UserID, time.Now())
+	row := Tx.QueryRowContext(context.Background(), db.DeleteGist, GistId, User.ID, time.Now())
 	err = row.Scan(&returnGistId)
 
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return echo.NewHTTPError(http.StatusNotFound, map[string]any{
 				"success": false,
-				"message": "Failed to update gist from database! Not Found",
-				"details": err.Error(),
+				"message": "Failed to update gist from database!",
+				"details": fmt.Sprintf("Not Found Gists with ID `%s` with the linked User ID `%s`", GistId, User.ID),
 			})
 		}
 
