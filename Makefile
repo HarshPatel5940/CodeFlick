@@ -11,7 +11,6 @@ build:
 run:
 	@go run cmd/api/main.go
 
-
 # Clean the binary
 clean:
 	@echo "Cleaning..."
@@ -41,3 +40,35 @@ migrate-up:
 migrate-down:
 	@echo "Migrating down..."
 	@go run cmd/migrate/main.go down
+
+docker-start:
+	@echo "Building Docker image..."
+	@docker compose up --build -d
+
+docker-restart:
+	@echo "Restarting Docker container..."
+	@docker compose restart
+
+docker-stop:
+	@echo "Stopping Docker container..."
+	@docker compose down
+
+docker-logs:
+	@echo "Showing Docker logs..."
+	@docker compose logs -f
+
+docker-db-up:
+	@echo "Starting Mino and Postgres containers..."
+	@docker start codeflick-minio codeflick-postgres
+
+docker-db-down:
+	@echo "Stopping Mino and Postgres containers..."
+	@docker stop codeflick-minio codeflick-postgres
+
+docker-db-restart:
+	@echo "Restarting Mino and Postgres containers..."
+	@docker restart codeflick-minio codeflick-postgres
+
+docker-delete:
+	@echo "Deleting Docker containers..."
+	@docker compose down --volumes --networks --remove-orphans
