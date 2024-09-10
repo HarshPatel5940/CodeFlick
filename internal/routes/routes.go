@@ -38,13 +38,14 @@ func SetupAPIRoutes(e *echo.Group,
 
 	// File Routes
 	gistsRoutes := e.Group("/gists", middlewares.SessionMiddleware)
-	// e.GET("/gists", FileStorageHandler.ListGists)
+	gistsRoutes.GET("", FileStorageHandler.ListGists)
 	gistsRoutes.POST("/new", FileStorageHandler.UploadGist)
 	gistsRoutes.GET("/:id", FileStorageHandler.GetGist)
 	gistsRoutes.PUT("/:id", FileStorageHandler.UpdateGist)
 	gistsRoutes.DELETE("/:id", FileStorageHandler.DeleteGist)
 
-	e.GET("/admin/buckets", FileStorageHandler.ListBuckets)
+	adminRoutes := e.Group("/admin", middlewares.SessionMiddleware)
+	adminRoutes.GET("/buckets", FileStorageHandler.ListBuckets)
 
 }
 

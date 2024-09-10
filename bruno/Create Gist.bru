@@ -1,7 +1,7 @@
 meta {
   name: Create Gist
   type: http
-  seq: 2
+  seq: 4
 }
 
 post {
@@ -11,8 +11,8 @@ post {
 }
 
 body:multipart-form {
-  gist_title: fosshack
-  custom_url: CoolBoiee
-  is_public: true
-  file: @file(/Users/harshnpatel/Downloads/FOSS Hackathon Participant (4).csv)
+  gist_title: Customer Mails
+  custom_url: mail_customsers
+  is_public: false
+  file: @file(/Users/harshnpatel/Downloads/Mall_Customers.csv)
 }
