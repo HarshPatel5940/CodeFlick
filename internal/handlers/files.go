@@ -148,6 +148,7 @@ func (fh FileStorageHandler) UploadGist(c echo.Context) error {
 }
 
 func (fh FileStorageHandler) ListBuckets(c echo.Context) error {
+	slog.Info("Hit 0")
 	var User models.User = c.Get("UserSessionDetails").(models.User)
 	if !User.IsAdmin {
 		return echo.NewHTTPError(http.StatusUnauthorized, map[string]any{
@@ -155,7 +156,6 @@ func (fh FileStorageHandler) ListBuckets(c echo.Context) error {
 			"message": "You are not authorized to view this page!",
 		})
 	}
-
 	list, err := fh.minio.ListBuckets(context.Background())
 	if err != nil {
 		resp := minio.ToErrorResponse(err)
@@ -176,6 +176,69 @@ func (fh FileStorageHandler) ListBuckets(c echo.Context) error {
 	return c.JSON(http.StatusOK, map[string]any{
 		"success": true,
 		"message": list,
+	})
+}
+
+func (fh FileStorageHandler) ListGists(c echo.Context) error {
+	slog.Info("Hello World")
+	var Gists []models.Gist
+	var User models.User = c.Get("UserSessionDetails").(models.User)
+
+	Tx, err := fh.db.BeginTx(context.Background(), &sql.TxOptions{})
+
+	if err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, map[string]any{
+			"success": false,
+			"message": "Failed to start a PostgreSQL transaction!",
+			"details": err.Error(),
+		})
+	}
+	defer Tx.Rollback()
+
+	rows, err := Tx.QueryContext(context.Background(), db.GetGistsByUserID, User.ID)
+
+	if err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, map[string]any{
+			"success": false,
+			"message": "Failed to get gists from database!",
+			"details": err.Error(),
+		})
+	}
+
+	for rows.Next() {
+		var Gist models.Gist
+		err := rows.Scan(&Gist.FileID, &Gist.UserID, &Gist.GistTitle, &Gist.ForkedFrom, &Gist.ShortUrl,
+			&Gist.ViewCount, &Gist.IsPublic, &Gist.IsDeleted, &Gist.CreatedAt, &Gist.UpdatedAt)
+		if err != nil {
+			return echo.NewHTTPError(http.StatusInternalServerError, map[string]any{
+				"success": false,
+				"message": "Failed to scan gist from database!",
+				"details": err.Error(),
+			})
+		}
+		Gists = append(Gists, Gist)
+	}
+
+	if err := rows.Err(); err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, map[string]any{
+			"success": false,
+			"message": "Failed to get gists from database!",
+			"details": err.Error(),
+		})
+	}
+
+	if err := Tx.Commit(); err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, map[string]any{
+			"success": false,
+			"message": "Failed to commit the PostgreSQL transaction!",
+			"details": err.Error(),
+		})
+	}
+
+	return c.JSON(http.StatusOK, map[string]any{
+		"success": true,
+		"message": "Fetch all gists successfully!",
+		"data":    Gists,
 	})
 }
 
@@ -377,8 +440,6 @@ func (fh FileStorageHandler) UpdateGist(c echo.Context) error {
 		IsPublic = Gist.IsPublic
 	}
 
-	slog.Info(Gist.FileID, Gist.UserID, GistTitle, ShortUrl, IsPublic)
-
 	var returnGistId string
 	row := Tx.QueryRowContext(context.Background(), db.UpdateGist, Gist.FileID, Gist.UserID, GistTitle, ShortUrl, IsPublic, currentTime)
 	err = row.Scan(&returnGistId)
@@ -467,7 +528,7 @@ func (fh FileStorageHandler) UpdateGist(c echo.Context) error {
 	return c.JSON(http.StatusOK, map[string]any{
 		"success": true,
 		"message": "Gist Updated successfully!",
-		"fileId":  returnGistId,
+		"data":    returnGistId,
 	})
 }
 
@@ -523,6 +584,6 @@ func (fh FileStorageHandler) DeleteGist(c echo.Context) error {
 	return c.JSON(http.StatusOK, map[string]any{
 		"success": true,
 		"message": "Gist deleted successfully!",
-		"fileId":  returnGistId,
+		"data":    returnGistId,
 	})
 }

@@ -14,7 +14,7 @@ type Gist struct {
 	ShortUrl   string         `json:"shortUrl" db:"short_url"`
 
 	ViewCount int  `json:"viewCount" db:"view_count"`
-	IsPublic  bool `json:"isEnabled" db:"is_enabled"`
+	IsPublic  bool `json:"isPublic" db:"is_public"`
 	IsDeleted bool `json:"isDeleted" db:"is_deleted"`
 
 	CreatedAt time.Time `json:"createdAt" db:"created_at"`

@@ -1,10 +1,10 @@
 package middlewares
 
 import (
+	"log/slog"
 	"net/http"
 
 	"github.com/HarshPatel5940/CodeFlick/internal/models"
-
 	"github.com/labstack/echo-contrib/session"
 	"github.com/labstack/echo/v4"
 )
@@ -31,6 +31,7 @@ func SessionMiddleware(next echo.HandlerFunc) echo.HandlerFunc {
 		}
 
 		c.Set("UserSessionDetails", User)
+		slog.Info("User Session Context Applited")
 
 		return next(c)
 	}

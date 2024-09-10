@@ -82,7 +82,7 @@ func (ah AuthHandler) GoogleOauthCallback(c echo.Context) error {
 	}
 
 	sess, err := session.Get("session", c)
-	if err != nil || sess.Values["user_id"] == nil || sess.Values["user_id"] == "" {
+	if err != nil {
 		return echo.NewHTTPError(http.StatusUnauthorized, map[string]any{
 			"success": false,
 			"message": "Failed to get session!",
