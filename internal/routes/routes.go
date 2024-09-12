@@ -31,21 +31,34 @@ func SetupAPIRoutes(e *echo.Group,
 ) {
 	e.GET("", root)
 
-	// Auth Routes
-	e.GET("/auth/:provider/login", AuthHandler.GoogleOauthLogin)
-	e.GET("/auth/:provider/callback", AuthHandler.GoogleOauthCallback)
-	e.GET("/auth/session", AuthHandler.GetSessionDetails)
+	// * ==========================
+	e.GET("/auth/:provider/login", AuthHandler.GoogleOauthLogin, middlewares.SessionMiddleware(middlewares.Config{
+		RequiredAccess: middlewares.AccessLevelAll,
+	}))
+	e.GET("/auth/:provider/callback", AuthHandler.GoogleOauthCallback, middlewares.SessionMiddleware(middlewares.Config{
+		RequiredAccess: middlewares.AccessLevelAll}))
+	e.GET("/auth/session", AuthHandler.GetSessionDetails, middlewares.SessionMiddleware(middlewares.Config{
+		RequiredAccess: middlewares.AccessLevelUser,
+	}))
 
-	// File Routes
-	gistsRoutes := e.Group("/gists", middlewares.SessionMiddleware)
+	// * ==========================
+	gistsRoutes := e.Group("/gists", middlewares.SessionMiddleware(middlewares.Config{
+		RequiredAccess: middlewares.AccessLevelUser,
+	}))
 	gistsRoutes.GET("", FileStorageHandler.ListGists)
 	gistsRoutes.POST("/new", FileStorageHandler.UploadGist)
 	gistsRoutes.GET("/:id", FileStorageHandler.GetGist)
 	gistsRoutes.PUT("/:id", FileStorageHandler.UpdateGist)
 	gistsRoutes.DELETE("/:id", FileStorageHandler.DeleteGist)
 
-	adminRoutes := e.Group("/admin", middlewares.SessionMiddleware)
+	// * ==========================
+	adminRoutes := e.Group("/admin", middlewares.SessionMiddleware(middlewares.Config{
+		RequiredAccess: middlewares.AccessLevelAdmin,
+	}))
 	adminRoutes.GET("/buckets", FileStorageHandler.ListBuckets)
+	adminRoutes.GET("/buckets/:bucket", FileStorageHandler.ListAllFiles)
+	// TODO: adminRoutes.GET("/users", FileStorageHandler.GetAllUsers)
+	// TODO: delete and update routes for users and gists
 
 }
 
