@@ -148,7 +148,6 @@ func (fh FileStorageHandler) UploadGist(c echo.Context) error {
 }
 
 func (fh FileStorageHandler) ListBuckets(c echo.Context) error {
-	slog.Info("Hit 0")
 	var User models.User = c.Get("UserSessionDetails").(models.User)
 	if !User.IsAdmin {
 		return echo.NewHTTPError(http.StatusUnauthorized, map[string]any{
@@ -156,6 +155,7 @@ func (fh FileStorageHandler) ListBuckets(c echo.Context) error {
 			"message": "You are not authorized to view this page!",
 		})
 	}
+
 	list, err := fh.minio.ListBuckets(context.Background())
 	if err != nil {
 		resp := minio.ToErrorResponse(err)
@@ -180,7 +180,6 @@ func (fh FileStorageHandler) ListBuckets(c echo.Context) error {
 }
 
 func (fh FileStorageHandler) ListGists(c echo.Context) error {
-	slog.Info("Hello World")
 	var Gists []models.Gist
 	var User models.User = c.Get("UserSessionDetails").(models.User)
 
@@ -216,7 +215,10 @@ func (fh FileStorageHandler) ListGists(c echo.Context) error {
 				"details": err.Error(),
 			})
 		}
-		Gists = append(Gists, Gist)
+
+		if !Gist.IsDeleted {
+			Gists = append(Gists, Gist)
+		}
 	}
 
 	if err := rows.Err(); err != nil {
@@ -440,6 +442,8 @@ func (fh FileStorageHandler) UpdateGist(c echo.Context) error {
 		IsPublic = Gist.IsPublic
 	}
 
+	slog.Info(Gist.FileID, Gist.UserID, GistTitle, ShortUrl, IsPublic)
+
 	var returnGistId string
 	row := Tx.QueryRowContext(context.Background(), db.UpdateGist, Gist.FileID, Gist.UserID, GistTitle, ShortUrl, IsPublic, currentTime)
 	err = row.Scan(&returnGistId)
@@ -528,7 +532,7 @@ func (fh FileStorageHandler) UpdateGist(c echo.Context) error {
 	return c.JSON(http.StatusOK, map[string]any{
 		"success": true,
 		"message": "Gist Updated successfully!",
-		"data":    returnGistId,
+		"fileId":  returnGistId,
 	})
 }
 
@@ -584,6 +588,11 @@ func (fh FileStorageHandler) DeleteGist(c echo.Context) error {
 	return c.JSON(http.StatusOK, map[string]any{
 		"success": true,
 		"message": "Gist deleted successfully!",
-		"data":    returnGistId,
+		"fileId":  returnGistId,
 	})
+}
+
+func (fh FileStorageHandler) ListAllFiles(c echo.Context) error {
+
+	return nil
 }
