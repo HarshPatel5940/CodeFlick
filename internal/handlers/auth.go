@@ -151,23 +151,17 @@ func (ah AuthHandler) GoogleOauthCallback(c echo.Context) error {
 }
 
 func (ah AuthHandler) GetSessionDetails(c echo.Context) error {
-	sess, err := session.Get("session", c)
-	if err != nil || sess.Values["user_id"] == nil || sess.Values["user_id"] == "" {
-		return echo.NewHTTPError(http.StatusUnauthorized, map[string]any{
-			"success": false,
-			"message": "Failed to get session!",
-		})
-	}
+	var sess models.User = c.Get("UserSessionDetails").(models.User)
 
 	return c.JSON(200, map[string]any{
 		"success": true,
 		"message": "Session details fetched successfully!",
 		"data": map[string]any{
-			"user_id":   sess.Values["user_id"],
-			"name":      sess.Values["name"],
-			"email":     sess.Values["email"],
-			"isAdmin":   sess.Values["isAdmin"],
-			"isPremium": sess.Values["isPremium"],
-			"isDeleted": sess.Values["isDeleted"],
+			"user_id":   sess.ID,
+			"name":      sess.Name,
+			"email":     sess.Email,
+			"isAdmin":   sess.IsAdmin,
+			"isPremium": sess.IsPremium,
+			"isDeleted": sess.IsDeleted,
 		}})
 }

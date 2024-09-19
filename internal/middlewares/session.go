@@ -28,6 +28,10 @@ func SessionMiddleware(config Config) echo.MiddlewareFunc {
 			slog.Debug("Session Middleware Hit")
 			sess, err := session.Get("session", c)
 
+			if config.RequiredAccess == "" {
+				config.RequiredAccess = AccessLevelAll
+			}
+
 			if err != nil {
 				if config.RequiredAccess != AccessLevelAll {
 					return echo.NewHTTPError(http.StatusUnauthorized, map[string]any{
@@ -70,7 +74,7 @@ func SessionMiddleware(config Config) echo.MiddlewareFunc {
 			}
 
 			c.Set("UserSessionDetails", User)
-			slog.Info("User Session Context Applited")
+			slog.Debug("User Session Context Applied")
 
 			return next(c)
 		}
