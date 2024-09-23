@@ -1,0 +1,17 @@
+meta {
+  name: Add Gist Replies
+  type: http
+  seq: 12
+}
+
+post {
+  url: {{BaseUrl}}/gists/01J8EGZ17R51G8V0E26DKJR9ZY/reply
+  body: json
+  auth: none
+}
+
+body:json {
+  {
+    "message": "Hello Boss :D"
+  }
+}

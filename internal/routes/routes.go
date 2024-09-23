@@ -45,6 +45,8 @@ func SetupAPIRoutes(e *echo.Group,
 	gistsRoutes.GET("", FileStorageHandler.ListGists)
 	gistsRoutes.POST("/new", FileStorageHandler.UploadGist)
 	gistsRoutes.GET("/:id", FileStorageHandler.GetGist)
+	gistsRoutes.GET("/:id/replies", FileStorageHandler.GetGistReplies)
+	gistsRoutes.POST("/:id/reply", FileStorageHandler.InsertGistReply)
 	gistsRoutes.PUT("/:id", FileStorageHandler.UpdateGist)
 	gistsRoutes.DELETE("/:id", FileStorageHandler.DeleteGist)
 
