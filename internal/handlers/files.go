@@ -455,7 +455,6 @@ func (fh FileStorageHandler) GetGistReplies(c echo.Context) error {
 				"message": "Failed to scan replies from databaseuuu!",
 				"details": err.Error(),
 			})
-			slog.Error(err.Error())
 		}
 		replies = append(replies, reply)
 	}
