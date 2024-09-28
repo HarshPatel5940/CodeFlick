@@ -15,5 +15,8 @@ const (
 	DeleteGist        = `UPDATE gists SET is_deleted = true, updated_at = $3 WHERE file_id = $1 AND user_id=$2 RETURNING file_id;`
 
 	GetRepliesByGistID = `SELECT * FROM replies WHERE gist_id = $1;`
+	GetReplyByID       = `SELECT * FROM replies WHERE id = $1 AND gist_id = $2;`
 	InsertReply        = `INSERT INTO replies (id, user_id, gist_id, message) VALUES ($1, $2, $3, $4);`
+	UpdateReply        = `UPDATE replies SET message = $4, updated_at = $5 WHERE id = $1 AND user_id = $2 AND gist_id = $3;`
+	DeleteReply        = `UPDATE replies SET is_deleted = true, updated_at = $4 WHERE id = $1 AND user_id = $2 AND gist_id = $3;`
 )

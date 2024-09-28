@@ -45,12 +45,15 @@ func SetupAPIRoutes(e *echo.Group,
 	gistsRoutes.GET("", FileStorageHandler.ListGists)
 	gistsRoutes.POST("/new", FileStorageHandler.UploadGist)
 	gistsRoutes.GET("/:id", FileStorageHandler.GetGist)
-	gistsRoutes.GET("/:id/replies", FileStorageHandler.GetGistReplies)
-	gistsRoutes.POST("/:id/reply", FileStorageHandler.InsertGistReply)
 	gistsRoutes.PUT("/:id", FileStorageHandler.UpdateGist)
 	gistsRoutes.DELETE("/:id", FileStorageHandler.DeleteGist)
 
-	// * ==========================
+	gistsRoutes.GET("/:id/reply", FileStorageHandler.GetGistReplies)
+	gistsRoutes.POST("/:id/reply", FileStorageHandler.InsertGistReply)
+	gistsRoutes.PUT("/:id/reply/:reply_id", FileStorageHandler.UpdateGistReply)
+	gistsRoutes.DELETE("/:id/reply/:reply_id", FileStorageHandler.DeleteGistReply)
+
+	// * ========================== Admin Routes ==================
 	adminRoutes := e.Group("/admin", middlewares.SessionMiddleware(middlewares.Config{
 		RequiredAccess: middlewares.AccessLevelAdmin,
 	}))

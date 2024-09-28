@@ -1,0 +1,17 @@
+meta {
+  name: Update Gist Replies
+  type: http
+  seq: 13
+}
+
+put {
+  url: {{BaseUrl}}/gists/01J8EGZ17R51G8V0E26DKJR9ZY/reply/01J8F2881PY7GZMBEGD514TS5V
+  body: json
+  auth: none
+}
+
+body:json {
+  {
+    "message": "Hello Sirrr :D"
+  }
+}

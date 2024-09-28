@@ -378,174 +378,6 @@ func (fh FileStorageHandler) GetGist(c echo.Context) error {
 	return c.Blob(http.StatusOK, "application/octet-stream", buffer.Bytes())
 }
 
-func (fh FileStorageHandler) GetGistReplies(c echo.Context) error {
-	var replies []models.Reply = make([]models.Reply, 0)
-	var Gist models.Gist
-	GistID := c.Param("id")
-
-	slog.Debug("Fetching Gist Replies")
-
-	if GistID == "" {
-		return echo.NewHTTPError(http.StatusBadRequest, map[string]any{
-			"success": false,
-			"message": "Gist ID is required!",
-		})
-	}
-
-	Tx, err := fh.db.BeginTx(context.Background(), &sql.TxOptions{})
-	if err != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, map[string]any{
-			"success": false,
-			"message": "Failed to start a PostgreSQL transaction!",
-			"details": err.Error(),
-		})
-	}
-	defer Tx.Rollback()
-
-	gistRow := Tx.QueryRowContext(context.Background(), db.GetGistByID, GistID)
-
-	err = gistRow.Scan(&Gist.FileID, &Gist.UserID, &Gist.GistTitle, &Gist.ShortUrl, &Gist.ForkedFrom, &Gist.ViewCount, &Gist.IsPublic, &Gist.IsDeleted, &Gist.CreatedAt, &Gist.UpdatedAt)
-
-	if err != nil {
-		if err == sql.ErrNoRows {
-			return echo.NewHTTPError(http.StatusNotFound, map[string]any{
-				"success": false,
-				"message": "Gist not found!",
-				"details": err.Error(),
-			})
-		}
-		return echo.NewHTTPError(http.StatusInternalServerError, map[string]any{
-			"success": false,
-			"message": "Failed to get gist from database!",
-			"details": err.Error(),
-		})
-	}
-
-	if Gist.IsDeleted {
-		return echo.NewHTTPError(http.StatusNotFound, map[string]any{
-			"success": false,
-			"message": "Gist not found! Deleted by the user!",
-		})
-	}
-
-	rows, err := Tx.QueryContext(context.Background(), db.GetRepliesByGistID, GistID)
-
-	if err != nil {
-		if err == sql.ErrNoRows {
-			return c.JSON(http.StatusOK, map[string]any{
-				"success": true,
-				"message": "Replies fetched successfully!",
-				"data":    []models.Reply{},
-			})
-		}
-
-		return echo.NewHTTPError(http.StatusInternalServerError, map[string]any{
-			"success": false,
-			"message": "Failed to get replies from database!",
-			"details": err.Error(),
-		})
-	}
-
-	var reply models.Reply
-	for rows.Next() {
-		err = rows.Scan(&reply.ID, &reply.GistID, &reply.UserID, &reply.Message, &reply.IsDeleted, &reply.CreatedAt, &reply.UpdatedAt)
-		if err != nil {
-			return echo.NewHTTPError(http.StatusInternalServerError, map[string]any{
-				"success": false,
-				"message": "Failed to scan replies from databaseuuu!",
-				"details": err.Error(),
-			})
-		}
-		replies = append(replies, reply)
-	}
-
-	return c.JSON(http.StatusOK, map[string]any{
-		"success": true,
-		"message": "Replies fetched successfully!",
-		"data":    replies,
-	})
-
-}
-
-func (fh FileStorageHandler) InsertGistReply(c echo.Context) error {
-	currentTime := time.Time(time.Now().UTC())
-	GistID := c.Param("id")
-	var Gist models.Gist
-	var User models.User = c.Get("UserSessionDetails").(models.User)
-	var reply models.Reply = models.Reply{ID: ulid.Make().String(), UserID: User.ID, GistID: GistID, CreatedAt: currentTime, UpdatedAt: currentTime}
-	// TODO: Use binds here provided by echo here
-
-	if GistID == "" {
-		return echo.NewHTTPError(http.StatusBadRequest, map[string]any{
-			"success": false,
-			"message": "Gist ID is required!",
-		})
-	}
-	body := c.Request().Body
-
-	err := json.NewDecoder(body).Decode(&reply)
-
-	if err != nil {
-		return echo.NewHTTPError(http.StatusBadRequest, map[string]any{
-			"success": false,
-			"message": "Failed to decode request body!",
-			"details": err.Error(),
-		})
-	}
-
-	Tx, err := fh.db.BeginTx(context.Background(), &sql.TxOptions{})
-	if err != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, map[string]any{
-			"success": false,
-			"message": "Failed to start a PostgreSQL transaction!",
-			"details": err.Error(),
-		})
-	}
-	defer Tx.Rollback()
-
-	row := Tx.QueryRowContext(context.Background(), db.GetGistByID, GistID)
-	err = row.Scan(&Gist.FileID, &Gist.UserID, &Gist.GistTitle, &Gist.ShortUrl, &Gist.ForkedFrom, &Gist.ViewCount, &Gist.IsPublic, &Gist.IsDeleted, &Gist.CreatedAt, &Gist.UpdatedAt)
-	if err != nil {
-		if err == sql.ErrNoRows {
-			return echo.NewHTTPError(http.StatusNotFound, map[string]any{
-				"success": false,
-				"message": "Gist not found!",
-				"details": err.Error(),
-			})
-		}
-
-		return echo.NewHTTPError(http.StatusInternalServerError, map[string]any{
-			"success": false,
-			"message": "Failed to get gist from database!",
-			"details": err.Error(),
-		})
-	}
-
-	_, err = Tx.ExecContext(context.Background(), db.InsertReply, reply.ID, reply.UserID, reply.GistID, reply.Message)
-
-	if err != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, map[string]any{
-			"success": false,
-			"message": "Failed to add the reply!",
-			"details": err.Error(),
-		})
-	}
-
-	if err := Tx.Commit(); err != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, map[string]any{
-			"success": false,
-			"message": "Failed to commit the PostgreSQL transaction!",
-			"details": err.Error(),
-		})
-	}
-
-	return c.JSON(http.StatusOK, map[string]any{
-		"success": true,
-		"message": "Replied successfully!",
-		"data":    reply,
-	})
-}
-
 func (fh FileStorageHandler) UpdateGist(c echo.Context) error {
 	currentTime := time.Now()
 	var Gist models.Gist
@@ -761,7 +593,373 @@ func (fh FileStorageHandler) DeleteGist(c echo.Context) error {
 	})
 }
 
-func (fh FileStorageHandler) ListAllFiles(c echo.Context) error {
+func (fh FileStorageHandler) GetGistReplies(c echo.Context) error {
+	var replies []models.Reply = make([]models.Reply, 0)
+	var Gist models.Gist
+	GistID := c.Param("id")
 
+	slog.Debug("Fetching Gist Replies")
+
+	if GistID == "" {
+		return echo.NewHTTPError(http.StatusBadRequest, map[string]any{
+			"success": false,
+			"message": "Gist ID is required!",
+		})
+	}
+
+	Tx, err := fh.db.BeginTx(context.Background(), &sql.TxOptions{})
+	if err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, map[string]any{
+			"success": false,
+			"message": "Failed to start a PostgreSQL transaction!",
+			"details": err.Error(),
+		})
+	}
+	defer Tx.Rollback()
+
+	gistRow := Tx.QueryRowContext(context.Background(), db.GetGistByID, GistID)
+
+	err = gistRow.Scan(&Gist.FileID, &Gist.UserID, &Gist.GistTitle, &Gist.ShortUrl, &Gist.ForkedFrom, &Gist.ViewCount, &Gist.IsPublic, &Gist.IsDeleted, &Gist.CreatedAt, &Gist.UpdatedAt)
+
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return echo.NewHTTPError(http.StatusNotFound, map[string]any{
+				"success": false,
+				"message": "Gist not found!",
+				"details": err.Error(),
+			})
+		}
+		return echo.NewHTTPError(http.StatusInternalServerError, map[string]any{
+			"success": false,
+			"message": "Failed to get gist from database!",
+			"details": err.Error(),
+		})
+	}
+
+	if Gist.IsDeleted {
+		return echo.NewHTTPError(http.StatusNotFound, map[string]any{
+			"success": false,
+			"message": "Gist not found! Deleted by the user!",
+		})
+	}
+
+	rows, err := Tx.QueryContext(context.Background(), db.GetRepliesByGistID, GistID)
+
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return c.JSON(http.StatusOK, map[string]any{
+				"success": true,
+				"message": "Replies fetched successfully!",
+				"data":    []models.Reply{},
+			})
+		}
+
+		return echo.NewHTTPError(http.StatusInternalServerError, map[string]any{
+			"success": false,
+			"message": "Failed to get replies from database!",
+			"details": err.Error(),
+		})
+	}
+
+	var reply models.Reply
+	for rows.Next() {
+		err = rows.Scan(&reply.ID, &reply.GistID, &reply.UserID, &reply.Message, &reply.IsDeleted, &reply.CreatedAt, &reply.UpdatedAt)
+		if err != nil {
+			return echo.NewHTTPError(http.StatusInternalServerError, map[string]any{
+				"success": false,
+				"message": "Failed to scan replies from databaseuuu!",
+				"details": err.Error(),
+			})
+		}
+		replies = append(replies, reply)
+	}
+
+	return c.JSON(http.StatusOK, map[string]any{
+		"success": true,
+		"message": "Replies fetched successfully!",
+		"data":    replies,
+	})
+
+}
+
+func (fh FileStorageHandler) InsertGistReply(c echo.Context) error {
+	currentTime := time.Time(time.Now().UTC())
+	GistID := c.Param("id")
+	var Gist models.Gist
+	var User models.User = c.Get("UserSessionDetails").(models.User)
+	var reply models.Reply = models.Reply{ID: ulid.Make().String(), UserID: User.ID, GistID: GistID, CreatedAt: currentTime, UpdatedAt: currentTime}
+	// TODO: Use binds here provided by echo here
+
+	if GistID == "" {
+		return echo.NewHTTPError(http.StatusBadRequest, map[string]any{
+			"success": false,
+			"message": "Gist ID is required!",
+		})
+	}
+	body := c.Request().Body
+	err := json.NewDecoder(body).Decode(&reply)
+
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, map[string]any{
+			"success": false,
+			"message": "Failed to decode request body!",
+			"details": err.Error(),
+		})
+	}
+
+	Tx, err := fh.db.BeginTx(context.Background(), &sql.TxOptions{})
+	if err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, map[string]any{
+			"success": false,
+			"message": "Failed to start a PostgreSQL transaction!",
+			"details": err.Error(),
+		})
+	}
+	defer Tx.Rollback()
+
+	row := Tx.QueryRowContext(context.Background(), db.GetGistByID, GistID)
+	err = row.Scan(&Gist.FileID, &Gist.UserID, &Gist.GistTitle, &Gist.ShortUrl, &Gist.ForkedFrom, &Gist.ViewCount, &Gist.IsPublic, &Gist.IsDeleted, &Gist.CreatedAt, &Gist.UpdatedAt)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return echo.NewHTTPError(http.StatusNotFound, map[string]any{
+				"success": false,
+				"message": "Gist not found!",
+				"details": err.Error(),
+			})
+		}
+
+		return echo.NewHTTPError(http.StatusInternalServerError, map[string]any{
+			"success": false,
+			"message": "Failed to get gist from database!",
+			"details": err.Error(),
+		})
+	}
+
+	_, err = Tx.ExecContext(context.Background(), db.InsertReply, reply.ID, reply.UserID, reply.GistID, reply.Message)
+
+	if err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, map[string]any{
+			"success": false,
+			"message": "Failed to add the reply!",
+			"details": err.Error(),
+		})
+	}
+
+	if err := Tx.Commit(); err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, map[string]any{
+			"success": false,
+			"message": "Failed to commit the PostgreSQL transaction!",
+			"details": err.Error(),
+		})
+	}
+
+	return c.JSON(http.StatusOK, map[string]any{
+		"success": true,
+		"message": "Replied successfully!",
+		"data":    reply,
+	})
+}
+
+func (fh FileStorageHandler) UpdateGistReply(c echo.Context) error {
+	gistID := c.Param("id")
+	replyID := c.Param("reply_id")
+	currentTime := time.Time(time.Now().UTC())
+	var User models.User = c.Get("UserSessionDetails").(models.User)
+	var reply models.Reply = models.Reply{ID: replyID, GistID: gistID, UserID: User.ID, UpdatedAt: currentTime}
+
+	if gistID == "" {
+		return echo.NewHTTPError(http.StatusBadRequest, map[string]any{
+			"success": false,
+			"message": "Gist ID is required!",
+		})
+	}
+
+	if replyID == "" {
+		return echo.NewHTTPError(http.StatusBadRequest, map[string]any{
+			"success": false,
+			"message": "Reply ID is required!",
+		})
+	}
+
+	body := c.Request().Body
+	err := json.NewDecoder(body).Decode(&reply)
+
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, map[string]any{
+			"success": false,
+			"message": "Failed to decode request body!",
+			"details": err.Error(),
+		})
+	}
+
+	Tx, err := fh.db.BeginTx(context.Background(), &sql.TxOptions{})
+	if err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, map[string]any{
+			"success": false,
+			"message": "Failed to start a PostgreSQL transaction!",
+			"details": err.Error(),
+		})
+	}
+	defer Tx.Rollback()
+
+	ReplyRow := Tx.QueryRowContext(context.Background(), db.GetReplyByID, replyID, gistID)
+	err = ReplyRow.Scan(&reply.ID, &reply.UserID, &reply.GistID, &reply.Message, &reply.IsDeleted, &reply.CreatedAt, &reply.UpdatedAt)
+
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return echo.NewHTTPError(http.StatusNotFound, map[string]any{
+				"success": false,
+				"message": "Reply not found!",
+				"details": err.Error(),
+			})
+		}
+		return echo.NewHTTPError(http.StatusInternalServerError, map[string]any{
+			"success": false,
+			"message": "Failed to get reply from database!",
+			"details": err.Error(),
+		})
+	}
+
+	if reply.UserID != User.ID {
+		return echo.NewHTTPError(http.StatusUnauthorized, map[string]any{
+			"success": false,
+			"message": "You are not allowed to update others reply!",
+		})
+	}
+
+	if reply.GistID != gistID {
+		return echo.NewHTTPError(http.StatusBadRequest, map[string]any{
+			"success": false,
+			"message": "Reply does not belong to the Gist!",
+		})
+	}
+
+	if reply.IsDeleted {
+		return echo.NewHTTPError(http.StatusBadRequest, map[string]any{
+			"success": false,
+			"message": "Reply is Deleted! Can't Update it!",
+		})
+	}
+
+	_, err = Tx.ExecContext(context.Background(), db.UpdateReply, replyID, User.ID, gistID, reply.Message, reply.UpdatedAt)
+
+	if err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, map[string]any{
+			"success": false,
+			"message": "Failed to add the reply!",
+			"details": err.Error(),
+		})
+	}
+
+	if err := Tx.Commit(); err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, map[string]any{
+			"success": false,
+			"message": "Failed to commit the PostgreSQL transaction!",
+			"details": err.Error(),
+		})
+	}
+
+	return c.JSON(http.StatusOK, map[string]any{
+		"success": true,
+		"message": "Updated Reply successfully!",
+		"data":    reply,
+	})
+}
+
+func (fh FileStorageHandler) DeleteGistReply(c echo.Context) error {
+	gistID := c.Param("id")
+	replyID := c.Param("reply_id")
+	currentTime := time.Time(time.Now().UTC())
+	var User models.User = c.Get("UserSessionDetails").(models.User)
+	var reply models.Reply = models.Reply{ID: replyID, GistID: gistID, UserID: User.ID, UpdatedAt: currentTime}
+
+	if gistID == "" {
+		return echo.NewHTTPError(http.StatusBadRequest, map[string]any{
+			"success": false,
+			"message": "Gist ID is required!",
+		})
+	}
+
+	if replyID == "" {
+		return echo.NewHTTPError(http.StatusBadRequest, map[string]any{
+			"success": false,
+			"message": "Reply ID is required!",
+		})
+	}
+
+	Tx, err := fh.db.BeginTx(context.Background(), &sql.TxOptions{})
+	if err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, map[string]any{
+			"success": false,
+			"message": "Failed to start a PostgreSQL transaction!",
+			"details": err.Error(),
+		})
+	}
+	defer Tx.Rollback()
+
+	ReplyRow := Tx.QueryRowContext(context.Background(), db.GetReplyByID, replyID, gistID)
+	err = ReplyRow.Scan(&reply.ID, &reply.UserID, &reply.GistID, &reply.Message, &reply.IsDeleted, &reply.CreatedAt, &reply.UpdatedAt)
+
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return echo.NewHTTPError(http.StatusNotFound, map[string]any{
+				"success": false,
+				"message": "Reply not found!",
+				"details": err.Error(),
+			})
+		}
+		return echo.NewHTTPError(http.StatusInternalServerError, map[string]any{
+			"success": false,
+			"message": "Failed to get reply from database!",
+			"details": err.Error(),
+		})
+	}
+
+	if reply.UserID != User.ID {
+		return echo.NewHTTPError(http.StatusUnauthorized, map[string]any{
+			"success": false,
+			"message": "You are not allowed to update others reply!",
+		})
+	}
+
+	if reply.GistID != gistID {
+		return echo.NewHTTPError(http.StatusBadRequest, map[string]any{
+			"success": false,
+			"message": "Reply does not belong to the Gist!",
+		})
+	}
+
+	if reply.IsDeleted {
+		return echo.NewHTTPError(http.StatusBadRequest, map[string]any{
+			"success": false,
+			"message": "Reply was already deleted!",
+		})
+	}
+
+	_, err = Tx.ExecContext(context.Background(), db.DeleteReply, replyID, User.ID, gistID, currentTime)
+
+	if err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, map[string]any{
+			"success": false,
+			"message": "Failed to delete the reply!",
+			"details": err.Error(),
+		})
+	}
+
+	if err := Tx.Commit(); err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, map[string]any{
+			"success": false,
+			"message": "Failed to commit the PostgreSQL transaction!",
+			"details": err.Error(),
+		})
+	}
+
+	return c.JSON(http.StatusOK, map[string]any{
+		"success": true,
+		"message": "Deleted Reply successfully!",
+	})
+}
+
+func (fh FileStorageHandler) ListAllFiles(c echo.Context) error {
 	return nil
 }
