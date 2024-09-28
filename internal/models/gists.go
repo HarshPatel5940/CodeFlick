@@ -17,6 +17,8 @@ type Gist struct {
 	IsPublic  bool `json:"isPublic" db:"is_public"`
 	IsDeleted bool `json:"isDeleted" db:"is_deleted"`
 
+	AuditLog []string `json:"auditLog" db:"audit_logs"`
+
 	CreatedAt time.Time `json:"createdAt" db:"created_at"`
 	UpdatedAt time.Time `json:"updatedAt" db:"updated_at"`
 }

@@ -13,4 +13,10 @@ const (
 	InsertGist        = `INSERT INTO gists ( user_id, file_id, gist_title, short_url, is_public) VALUES ( $1, $2, $3, $4, $5 );`
 	UpdateGist        = `UPDATE gists SET gist_title = $3, short_url = $4, is_public = $5, updated_at = $6 WHERE file_id = $1 and user_id=$2 RETURNING file_id;`
 	DeleteGist        = `UPDATE gists SET is_deleted = true, updated_at = $3 WHERE file_id = $1 AND user_id=$2 RETURNING file_id;`
+
+	GetRepliesByGistID = `SELECT * FROM replies WHERE gist_id = $1;`
+	GetReplyByID       = `SELECT * FROM replies WHERE id = $1 AND gist_id = $2;`
+	InsertReply        = `INSERT INTO replies (id, user_id, gist_id, message) VALUES ($1, $2, $3, $4);`
+	UpdateReply        = `UPDATE replies SET message = $4, updated_at = $5 WHERE id = $1 AND user_id = $2 AND gist_id = $3;`
+	DeleteReply        = `UPDATE replies SET is_deleted = true, updated_at = $4 WHERE id = $1 AND user_id = $2 AND gist_id = $3;`
 )

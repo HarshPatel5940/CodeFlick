@@ -32,11 +32,8 @@ func SetupAPIRoutes(e *echo.Group,
 	e.GET("", root)
 
 	// * ==========================
-	e.GET("/auth/:provider/login", AuthHandler.GoogleOauthLogin, middlewares.SessionMiddleware(middlewares.Config{
-		RequiredAccess: middlewares.AccessLevelAll,
-	}))
-	e.GET("/auth/:provider/callback", AuthHandler.GoogleOauthCallback, middlewares.SessionMiddleware(middlewares.Config{
-		RequiredAccess: middlewares.AccessLevelAll}))
+	e.GET("/auth/:provider/login", AuthHandler.GoogleOauthLogin, middlewares.SessionMiddleware(middlewares.Config{}))
+	e.GET("/auth/:provider/callback", AuthHandler.GoogleOauthCallback, middlewares.SessionMiddleware(middlewares.Config{}))
 	e.GET("/auth/session", AuthHandler.GetSessionDetails, middlewares.SessionMiddleware(middlewares.Config{
 		RequiredAccess: middlewares.AccessLevelUser,
 	}))
@@ -51,7 +48,12 @@ func SetupAPIRoutes(e *echo.Group,
 	gistsRoutes.PUT("/:id", FileStorageHandler.UpdateGist)
 	gistsRoutes.DELETE("/:id", FileStorageHandler.DeleteGist)
 
-	// * ==========================
+	gistsRoutes.GET("/:id/reply", FileStorageHandler.GetGistReplies)
+	gistsRoutes.POST("/:id/reply", FileStorageHandler.InsertGistReply)
+	gistsRoutes.PUT("/:id/reply/:reply_id", FileStorageHandler.UpdateGistReply)
+	gistsRoutes.DELETE("/:id/reply/:reply_id", FileStorageHandler.DeleteGistReply)
+
+	// * ========================== Admin Routes ==================
 	adminRoutes := e.Group("/admin", middlewares.SessionMiddleware(middlewares.Config{
 		RequiredAccess: middlewares.AccessLevelAdmin,
 	}))
