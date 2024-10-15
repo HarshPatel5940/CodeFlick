@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"log"
 	"time"
 
 	"github.com/HarshPatel5940/CodeFlick/internal/db"
@@ -18,7 +19,6 @@ import (
 func CreateServer(
 	FileStorageHandler *handlers.FileStorageHandler, AuthHandler *handlers.AuthHandler, db *sqlx.DB, minio *minio.Client,
 ) *echo.Echo {
-
 	app := echo.New()
 	// TODO: add middleware for route body validator
 	middlewares.SetupMiddlewares(app)
@@ -36,7 +36,11 @@ func InitServer(lifecycle fx.Lifecycle, app *echo.Echo) {
 		OnStart: func(context.Context) error {
 			routes.StartTime = time.Now()
 			address := utils.GetServerAddress()
-			go app.Start(address)
+			go func() {
+				if err := app.Start(address); err != nil {
+					log.Fatalf("Error starting server: %v", err)
+				}
+			}()
 			return nil
 		},
 		OnStop: func(ctx context.Context) error {

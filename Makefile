@@ -41,6 +41,9 @@ migrate-down:
 	@echo "Migrating down..."
 	@go run cmd/migrate/main.go down
 
+lint:
+	@golangci-lint run --fix
+
 docker-start:
 	@echo "Building Docker image..."
 	@docker compose up --build -d

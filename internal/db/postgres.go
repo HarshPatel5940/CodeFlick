@@ -8,7 +8,6 @@ import (
 
 func CreatePostgresConnection() *sqlx.DB {
 	db, err := sqlx.Open("postgres", utils.GetEnv("DATABASE_URL"))
-
 	if err != nil {
 		panic(err)
 	}

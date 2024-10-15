@@ -25,10 +25,13 @@ type AuthHandler struct {
 	sessionAge int
 }
 
+type contextKey string
+
+const providerKey contextKey = "provider"
+
 func NewAuthHandler(db *sqlx.DB) *AuthHandler {
 	InitialiseAuth()
 	sessionAge, err := strconv.Atoi(utils.GetEnv("GORILLA_SESSIONS_MAXAGE", "604800"))
-
 	if err != nil {
 		slog.Error("GORILLA_SESSIONS_MAXAGE is not a valid integer! Taking '604800' (7 Days) as default value")
 		slog.Error(err.Error())
@@ -58,7 +61,7 @@ func (ah AuthHandler) GoogleOauthLogin(c echo.Context) error {
 	sess, err := session.Get("session", c)
 
 	if err != nil || sess.Values["user_id"] == nil || sess.Values["user_id"] == "" {
-		ctx := context.WithValue(c.Request().Context(), "provider", "google")
+		ctx := context.WithValue(c.Request().Context(), providerKey, "google")
 		gothic.BeginAuthHandler(c.Response(), c.Request().WithContext(ctx))
 	}
 
@@ -72,7 +75,8 @@ func (ah AuthHandler) GoogleOauthLogin(c echo.Context) error {
 			"isAdmin":   sess.Values["isAdmin"],
 			"isPremium": sess.Values["isPremium"],
 			"isDeleted": sess.Values["isDeleted"],
-		}})
+		},
+	})
 }
 
 func (ah AuthHandler) GoogleOauthCallback(c echo.Context) error {
@@ -163,5 +167,6 @@ func (ah AuthHandler) GetSessionDetails(c echo.Context) error {
 			"isAdmin":   sess.IsAdmin,
 			"isPremium": sess.IsPremium,
 			"isDeleted": sess.IsDeleted,
-		}})
+		},
+	})
 }

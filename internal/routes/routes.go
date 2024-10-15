@@ -61,7 +61,6 @@ func SetupAPIRoutes(e *echo.Group,
 	adminRoutes.GET("/buckets/:bucket", FileStorageHandler.ListAllFiles)
 	// TODO: adminRoutes.GET("/users", FileStorageHandler.GetAllUsers)
 	// TODO: delete and update routes for users and gists
-
 }
 
 func SetupPagesRoutes(app *echo.Echo) {

@@ -79,7 +79,11 @@ func (fh FileStorageHandler) UploadGist(c echo.Context) error {
 			"details": err.Error(),
 		})
 	}
-	defer src.Close()
+	defer func() {
+		if err := src.Close(); err != nil {
+			slog.Error("Failed to close file", "error", err)
+		}
+	}()
 
 	fileName := fmt.Sprintf("%s/%s", Gist.UserID, Gist.FileID)
 
@@ -90,7 +94,6 @@ func (fh FileStorageHandler) UploadGist(c echo.Context) error {
 		file.Size,
 		minio.PutObjectOptions{ContentType: file.Header.Get("Content-Type"), UserMetadata: map[string]string{"fileId": Gist.FileID}})
 	// Expires: <-time.After(time.Hour * 24 * 30) <- I thought of keeping expiring objects but change of plans i guess
-
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, map[string]any{
 			"success": false,
@@ -100,7 +103,6 @@ func (fh FileStorageHandler) UploadGist(c echo.Context) error {
 	}
 
 	Tx, err := fh.db.BeginTx(context.Background(), &sql.TxOptions{})
-
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, map[string]any{
 			"success": false,
@@ -109,13 +111,22 @@ func (fh FileStorageHandler) UploadGist(c echo.Context) error {
 		})
 	}
 
-	defer Tx.Rollback()
+	defer func() {
+		if err := Tx.Rollback(); err != nil && err != sql.ErrTxDone {
+			slog.Error("Failed to rollback transaction", "error", err)
+		}
+	}()
 
 	_, err = Tx.Exec(db.InsertGist, Gist.UserID, Gist.FileID, Gist.GistTitle, Gist.ShortUrl, Gist.IsPublic)
-
 	if err != nil {
 		if strings.Contains(err.Error(), "duplicate key value violates unique constraint") {
-			fh.minio.RemoveObject(context.Background(), MinioBucketName, fileInfo.Key, minio.RemoveObjectOptions{})
+			if err := fh.minio.RemoveObject(context.Background(), MinioBucketName, fileInfo.Key, minio.RemoveObjectOptions{}); err != nil {
+				return echo.NewHTTPError(http.StatusInternalServerError, map[string]any{
+					"success": false,
+					"message": "Failed to remove the file from minio!",
+					"details": minio.ToErrorResponse(err),
+				})
+			}
 
 			return echo.NewHTTPError(http.StatusConflict, map[string]any{
 				"success": false,
@@ -184,7 +195,6 @@ func (fh FileStorageHandler) ListGists(c echo.Context) error {
 	var User models.User = c.Get("UserSessionDetails").(models.User)
 
 	Tx, err := fh.db.BeginTx(context.Background(), &sql.TxOptions{})
-
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, map[string]any{
 			"success": false,
@@ -192,10 +202,13 @@ func (fh FileStorageHandler) ListGists(c echo.Context) error {
 			"details": err.Error(),
 		})
 	}
-	defer Tx.Rollback()
+	defer func() {
+		if err := Tx.Rollback(); err != nil && err != sql.ErrTxDone {
+			slog.Error("Failed to rollback transaction", "error", err)
+		}
+	}()
 
 	rows, err := Tx.QueryContext(context.Background(), db.GetGistsByUserID, User.ID)
-
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, map[string]any{
 			"success": false,
@@ -263,7 +276,11 @@ func (fh FileStorageHandler) GetGist(c echo.Context) error {
 			"details": err.Error(),
 		})
 	}
-	defer Tx.Rollback()
+	defer func() {
+		if err := Tx.Rollback(); err != nil && err != sql.ErrTxDone {
+			slog.Error("Failed to rollback transaction", "error", err)
+		}
+	}()
 
 	orgGistRow := fh.db.QueryRowContext(context.Background(), db.GetGistByShortURL, GistUrl)
 	err = orgGistRow.Scan(&Gist.FileID, &Gist.UserID, &Gist.ForkedFrom, &Gist.GistTitle, &Gist.ShortUrl,
@@ -399,12 +416,15 @@ func (fh FileStorageHandler) UpdateGist(c echo.Context) error {
 			"details": err.Error(),
 		})
 	}
-	defer Tx.Rollback()
+	defer func() {
+		if err := Tx.Rollback(); err != nil && err != sql.ErrTxDone {
+			slog.Error("Failed to rollback transaction", "error", err)
+		}
+	}()
 
 	orgGistRow := Tx.QueryRowContext(context.Background(), db.GetGistByID, Gist.FileID)
 	err = orgGistRow.Scan(&Gist.FileID, &Gist.UserID, &Gist.ForkedFrom, &Gist.GistTitle, &Gist.ShortUrl,
 		&Gist.ViewCount, &Gist.IsPublic, &Gist.IsDeleted, &Gist.CreatedAt, &Gist.UpdatedAt)
-
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return echo.NewHTTPError(http.StatusNotFound, map[string]any{
@@ -448,7 +468,6 @@ func (fh FileStorageHandler) UpdateGist(c echo.Context) error {
 	var returnGistId string
 	row := Tx.QueryRowContext(context.Background(), db.UpdateGist, Gist.FileID, Gist.UserID, GistTitle, ShortUrl, IsPublic, currentTime)
 	err = row.Scan(&returnGistId)
-
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return echo.NewHTTPError(http.StatusNotFound, map[string]any{
@@ -511,7 +530,11 @@ func (fh FileStorageHandler) UpdateGist(c echo.Context) error {
 			"details": err.Error(),
 		})
 	}
-	defer src.Close()
+	defer func() {
+		if err := src.Close(); err != nil {
+			slog.Error("Failed to close the file", "error", err)
+		}
+	}()
 
 	fileName := fmt.Sprintf("%s/%s", Gist.UserID, Gist.FileID)
 
@@ -521,7 +544,6 @@ func (fh FileStorageHandler) UpdateGist(c echo.Context) error {
 		src,
 		file.Size,
 		minio.PutObjectOptions{ContentType: file.Header.Get("Content-Type"), UserMetadata: map[string]string{"fileId": Gist.FileID}})
-
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, map[string]any{
 			"success": false,
@@ -557,11 +579,14 @@ func (fh FileStorageHandler) DeleteGist(c echo.Context) error {
 			"details": err.Error(),
 		})
 	}
-	defer Tx.Rollback()
+	defer func() {
+		if err := Tx.Rollback(); err != nil && err != sql.ErrTxDone {
+			slog.Error("Failed to rollback transaction", "error", err)
+		}
+	}()
 
 	row := Tx.QueryRowContext(context.Background(), db.DeleteGist, GistId, User.ID, time.Now())
 	err = row.Scan(&returnGistId)
-
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return echo.NewHTTPError(http.StatusNotFound, map[string]any{
@@ -615,12 +640,15 @@ func (fh FileStorageHandler) GetGistReplies(c echo.Context) error {
 			"details": err.Error(),
 		})
 	}
-	defer Tx.Rollback()
+	defer func() {
+		if err := Tx.Rollback(); err != nil && err != sql.ErrTxDone {
+			slog.Error("Failed to rollback transaction", "error", err)
+		}
+	}()
 
 	gistRow := Tx.QueryRowContext(context.Background(), db.GetGistByID, GistID)
 
 	err = gistRow.Scan(&Gist.FileID, &Gist.UserID, &Gist.GistTitle, &Gist.ShortUrl, &Gist.ForkedFrom, &Gist.ViewCount, &Gist.IsPublic, &Gist.IsDeleted, &Gist.CreatedAt, &Gist.UpdatedAt)
-
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return echo.NewHTTPError(http.StatusNotFound, map[string]any{
@@ -644,7 +672,6 @@ func (fh FileStorageHandler) GetGistReplies(c echo.Context) error {
 	}
 
 	rows, err := Tx.QueryContext(context.Background(), db.GetRepliesByGistID, GistID)
-
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return c.JSON(http.StatusOK, map[string]any{
@@ -679,11 +706,10 @@ func (fh FileStorageHandler) GetGistReplies(c echo.Context) error {
 		"message": "Replies fetched successfully!",
 		"data":    replies,
 	})
-
 }
 
 func (fh FileStorageHandler) InsertGistReply(c echo.Context) error {
-	currentTime := time.Time(time.Now().UTC())
+	currentTime := time.Now().UTC()
 	GistID := c.Param("id")
 	var Gist models.Gist
 	var User models.User = c.Get("UserSessionDetails").(models.User)
@@ -698,7 +724,6 @@ func (fh FileStorageHandler) InsertGistReply(c echo.Context) error {
 	}
 	body := c.Request().Body
 	err := json.NewDecoder(body).Decode(&reply)
-
 	if err != nil {
 		return echo.NewHTTPError(http.StatusBadRequest, map[string]any{
 			"success": false,
@@ -715,7 +740,11 @@ func (fh FileStorageHandler) InsertGistReply(c echo.Context) error {
 			"details": err.Error(),
 		})
 	}
-	defer Tx.Rollback()
+	defer func() {
+		if err := Tx.Rollback(); err != nil && err != sql.ErrTxDone {
+			slog.Error("Failed to rollback transaction", "error", err)
+		}
+	}()
 
 	row := Tx.QueryRowContext(context.Background(), db.GetGistByID, GistID)
 	err = row.Scan(&Gist.FileID, &Gist.UserID, &Gist.GistTitle, &Gist.ShortUrl, &Gist.ForkedFrom, &Gist.ViewCount, &Gist.IsPublic, &Gist.IsDeleted, &Gist.CreatedAt, &Gist.UpdatedAt)
@@ -736,7 +765,6 @@ func (fh FileStorageHandler) InsertGistReply(c echo.Context) error {
 	}
 
 	_, err = Tx.ExecContext(context.Background(), db.InsertReply, reply.ID, reply.UserID, reply.GistID, reply.Message)
-
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, map[string]any{
 			"success": false,
@@ -763,7 +791,7 @@ func (fh FileStorageHandler) InsertGistReply(c echo.Context) error {
 func (fh FileStorageHandler) UpdateGistReply(c echo.Context) error {
 	gistID := c.Param("id")
 	replyID := c.Param("reply_id")
-	currentTime := time.Time(time.Now().UTC())
+	currentTime := time.Now().UTC()
 	var User models.User = c.Get("UserSessionDetails").(models.User)
 	var reply models.Reply = models.Reply{ID: replyID, GistID: gistID, UserID: User.ID, UpdatedAt: currentTime}
 
@@ -783,7 +811,6 @@ func (fh FileStorageHandler) UpdateGistReply(c echo.Context) error {
 
 	body := c.Request().Body
 	err := json.NewDecoder(body).Decode(&reply)
-
 	if err != nil {
 		return echo.NewHTTPError(http.StatusBadRequest, map[string]any{
 			"success": false,
@@ -800,11 +827,14 @@ func (fh FileStorageHandler) UpdateGistReply(c echo.Context) error {
 			"details": err.Error(),
 		})
 	}
-	defer Tx.Rollback()
+	defer func() {
+		if err := Tx.Rollback(); err != nil && err != sql.ErrTxDone {
+			slog.Error("Failed to rollback transaction", "error", err)
+		}
+	}()
 
 	ReplyRow := Tx.QueryRowContext(context.Background(), db.GetReplyByID, replyID, gistID)
 	err = ReplyRow.Scan(&reply.ID, &reply.UserID, &reply.GistID, &reply.Message, &reply.IsDeleted, &reply.CreatedAt, &reply.UpdatedAt)
-
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return echo.NewHTTPError(http.StatusNotFound, map[string]any{
@@ -842,7 +872,6 @@ func (fh FileStorageHandler) UpdateGistReply(c echo.Context) error {
 	}
 
 	_, err = Tx.ExecContext(context.Background(), db.UpdateReply, replyID, User.ID, gistID, reply.Message, reply.UpdatedAt)
-
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, map[string]any{
 			"success": false,
@@ -869,7 +898,7 @@ func (fh FileStorageHandler) UpdateGistReply(c echo.Context) error {
 func (fh FileStorageHandler) DeleteGistReply(c echo.Context) error {
 	gistID := c.Param("id")
 	replyID := c.Param("reply_id")
-	currentTime := time.Time(time.Now().UTC())
+	currentTime := time.Now().UTC()
 	var User models.User = c.Get("UserSessionDetails").(models.User)
 	var reply models.Reply = models.Reply{ID: replyID, GistID: gistID, UserID: User.ID, UpdatedAt: currentTime}
 
@@ -895,11 +924,14 @@ func (fh FileStorageHandler) DeleteGistReply(c echo.Context) error {
 			"details": err.Error(),
 		})
 	}
-	defer Tx.Rollback()
+	defer func() {
+		if err := Tx.Rollback(); err != nil && err != sql.ErrTxDone {
+			slog.Error("Failed to rollback transaction", "error", err)
+		}
+	}()
 
 	ReplyRow := Tx.QueryRowContext(context.Background(), db.GetReplyByID, replyID, gistID)
 	err = ReplyRow.Scan(&reply.ID, &reply.UserID, &reply.GistID, &reply.Message, &reply.IsDeleted, &reply.CreatedAt, &reply.UpdatedAt)
-
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return echo.NewHTTPError(http.StatusNotFound, map[string]any{
@@ -937,7 +969,6 @@ func (fh FileStorageHandler) DeleteGistReply(c echo.Context) error {
 	}
 
 	_, err = Tx.ExecContext(context.Background(), db.DeleteReply, replyID, User.ID, gistID, currentTime)
-
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, map[string]any{
 			"success": false,

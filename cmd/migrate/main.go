@@ -22,11 +22,15 @@ var (
 )
 
 func init() {
-	godotenv.Load()
+	if err := godotenv.Load(); err != nil {
+		log.Fatalf("Error loading .env file: %v", err)
+	}
 }
 
 func main() {
-	flags.Parse(os.Args[1:])
+	if err := flags.Parse(os.Args[1:]); err != nil {
+		log.Fatalf("Error parsing flags: %v", err)
+	}
 	args := flags.Args()
 
 	if len(args) < 1 {
@@ -44,7 +48,6 @@ func main() {
 	}
 
 	db, err := goose.OpenDBWithDriver("postgres", dbString)
-
 	if err != nil {
 		fmt.Printf("goose: failed to open DB: %v\n", err)
 	}

@@ -24,7 +24,6 @@ func CreateMinioClient() *minio.Client {
 			""),
 		Secure: SSLPolicy,
 	})
-
 	if err != nil {
 		panic(err)
 	}
@@ -48,7 +47,6 @@ func InitMinioClient(MinioClient *minio.Client) {
 				ObjectLocking: false,
 			},
 		)
-
 		if err != nil {
 			slog.Error("Error while creating bucket")
 			log.Panic(err)
@@ -64,7 +62,6 @@ func InitMinioClient(MinioClient *minio.Client) {
 			bucketName,
 			utils.GetBucketPolicy(bucketName),
 		)
-
 		if err != nil {
 			slog.Error("Error while setting bucket policy")
 			log.Panic(err)

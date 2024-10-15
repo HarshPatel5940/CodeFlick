@@ -5,7 +5,6 @@ import (
 )
 
 func GetBucketPolicy(bucketName string) string {
-
 	Policy := fmt.Sprintf(`{
   "Statement": [
     {
