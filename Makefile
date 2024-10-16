@@ -4,8 +4,6 @@ all: build
 
 build:
 	@echo "Building..."
-	make tailwind-build
-	make templ-generate
 	@go build -o main cmd/api/main.go
 
 # Run the application
