@@ -2,7 +2,6 @@ package handlers
 
 import (
 	"context"
-	"database/sql"
 	"log/slog"
 	"net/http"
 	"strconv"
@@ -11,7 +10,6 @@ import (
 	"github.com/HarshPatel5940/CodeFlick/internal/models"
 	"github.com/HarshPatel5940/CodeFlick/internal/utils"
 	"github.com/gorilla/sessions"
-	"github.com/jmoiron/sqlx"
 	"github.com/labstack/echo-contrib/session"
 	"github.com/labstack/echo/v4"
 	"github.com/markbates/goth"
@@ -21,7 +19,7 @@ import (
 )
 
 type AuthHandler struct {
-	db         *sqlx.DB
+	userDB     *db.UserDB
 	sessionAge int
 }
 
@@ -29,7 +27,7 @@ type contextKey string
 
 const providerKey contextKey = "provider"
 
-func NewAuthHandler(db *sqlx.DB) *AuthHandler {
+func NewAuthHandler(userDB *db.UserDB) *AuthHandler {
 	InitialiseAuth()
 	sessionAge, err := strconv.Atoi(utils.GetEnv("GORILLA_SESSIONS_MAXAGE", "604800"))
 	if err != nil {
@@ -38,7 +36,7 @@ func NewAuthHandler(db *sqlx.DB) *AuthHandler {
 		sessionAge = 604800
 	}
 
-	return &AuthHandler{db: db, sessionAge: sessionAge}
+	return &AuthHandler{userDB: userDB, sessionAge: sessionAge}
 }
 
 func InitialiseAuth() {
@@ -100,34 +98,23 @@ func (ah AuthHandler) GoogleOauthCallback(c echo.Context) error {
 		HttpOnly: true,
 	}
 
-	row := ah.db.QueryRowContext(context.Background(), db.GetUserByEmail, GothUser.Email)
-
-	var User models.User = models.User{
-		ID:           ulid.Make().String(),
-		Name:         GothUser.Name,
-		Email:        GothUser.Email,
-		AuthProvider: GothUser.Provider,
-		IsAdmin:      false,
-		IsPremium:    false,
-		IsDeleted:    false,
-	}
-
-	if err := row.Scan(&User.ID, &User.Name,
-		&User.Email, &User.AuthProvider, &User.IsAdmin, &User.IsPremium,
-		&User.IsDeleted, &User.CreatedAt, &User.UpdatedAt); err != nil {
-		if err == sql.ErrNoRows {
-			_, err := ah.db.ExecContext(context.Background(), db.InsertUser, User.ID, User.Name, User.Email, User.AuthProvider, User.IsAdmin, User.IsPremium, User.IsDeleted)
-			if err != nil {
-				return echo.NewHTTPError(http.StatusInternalServerError, map[string]any{
-					"success": false,
-					"message": "Failed to insert user details!",
-					"details": err.Error(),
-				})
-			}
-		} else {
+	User, err := ah.userDB.GetUserByEmail(context.Background(), GothUser.Email)
+	if err != nil {
+		// If user doesn't exist, create a new one
+		User = models.User{
+			ID:           ulid.Make().String(),
+			Name:         GothUser.Name,
+			Email:        GothUser.Email,
+			AuthProvider: GothUser.Provider,
+			IsAdmin:      false,
+			IsPremium:    false,
+			IsDeleted:    false,
+		}
+		err = ah.userDB.InsertUser(context.Background(), User)
+		if err != nil {
 			return echo.NewHTTPError(http.StatusInternalServerError, map[string]any{
 				"success": false,
-				"message": "Failed to get user details!",
+				"message": "Failed to insert user details!",
 				"details": err.Error(),
 			})
 		}

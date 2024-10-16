@@ -2,6 +2,7 @@ package db
 
 import (
 	"context"
+	"io"
 	"log"
 	"log/slog"
 
@@ -10,7 +11,13 @@ import (
 	"github.com/minio/minio-go/v7/pkg/credentials"
 )
 
-func CreateMinioClient() *minio.Client {
+var MinioBucketName string = utils.GetEnv("MINIO_BUCKET_NAME", "codeflick")
+
+type MinioHandler struct {
+	client *minio.Client
+}
+
+func CreateMinioClient() *MinioHandler {
 	var SSLPolicy bool
 	if utils.GetEnv("MINIO_SSL_POLICY", "false") == "false" {
 		SSLPolicy = false
@@ -27,21 +34,20 @@ func CreateMinioClient() *minio.Client {
 	if err != nil {
 		panic(err)
 	}
-	return minioClient
+	return &MinioHandler{client: minioClient}
 }
 
-func InitMinioClient(MinioClient *minio.Client) {
-	bucketName := utils.GetEnv("MINIO_BUCKET_NAME", "codeflick")
-	bucketExists, err := MinioClient.BucketExists(context.Background(), bucketName)
+func (m *MinioHandler) InitMinioClient() {
+	bucketExists, err := m.client.BucketExists(context.Background(), MinioBucketName)
 	if err != nil {
 		slog.Error("Error while checking if bucket exists")
 		log.Panic(err)
 	}
 
 	if !bucketExists {
-		err = MinioClient.MakeBucket(
+		err = m.client.MakeBucket(
 			context.Background(),
-			bucketName,
+			MinioBucketName,
 			minio.MakeBucketOptions{
 				Region:        "ap-south-1",
 				ObjectLocking: false,
@@ -57,10 +63,10 @@ func InitMinioClient(MinioClient *minio.Client) {
 	}
 
 	if bucketExists {
-		err = MinioClient.SetBucketPolicy(
+		err = m.client.SetBucketPolicy(
 			context.Background(),
-			bucketName,
-			utils.GetBucketPolicy(bucketName),
+			MinioBucketName,
+			utils.GetBucketPolicy(MinioBucketName),
 		)
 		if err != nil {
 			slog.Error("Error while setting bucket policy")
@@ -74,4 +80,18 @@ func InitMinioClient(MinioClient *minio.Client) {
 	slog.Info("Bucket Initialized Successfully.")
 }
 
-// TODO: Add functions which are required to interact with Minio like GET and PUT objects
+func (m *MinioHandler) PutObject(ctx context.Context, objectName string, reader io.Reader, objectSize int64, opts minio.PutObjectOptions) (minio.UploadInfo, error) {
+	return m.client.PutObject(ctx, MinioBucketName, objectName, reader, objectSize, opts)
+}
+
+func (m *MinioHandler) GetObject(ctx context.Context, objectName string, opts minio.GetObjectOptions) (*minio.Object, error) {
+	return m.client.GetObject(ctx, MinioBucketName, objectName, opts)
+}
+
+func (m *MinioHandler) RemoveObject(ctx context.Context, objectName string, opts minio.RemoveObjectOptions) error {
+	return m.client.RemoveObject(ctx, MinioBucketName, objectName, opts)
+}
+
+func (m *MinioHandler) ListBuckets(ctx context.Context) ([]minio.BucketInfo, error) {
+	return m.client.ListBuckets(ctx)
+}

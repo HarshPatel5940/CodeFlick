@@ -12,56 +12,72 @@ import (
 	"github.com/HarshPatel5940/CodeFlick/internal/utils"
 	"github.com/jmoiron/sqlx"
 	"github.com/labstack/echo/v4"
-	"github.com/minio/minio-go/v7"
 	"go.uber.org/fx"
 )
 
-func CreateServer(
-	FileStorageHandler *handlers.FileStorageHandler, AuthHandler *handlers.AuthHandler, db *sqlx.DB, minio *minio.Client,
-) *echo.Echo {
-	app := echo.New()
-	// TODO: add middleware for route body validator
-	middlewares.SetupMiddlewares(app)
-
-	routes.SetupPagesRoutes(app)
-
-	api := app.Group("/api")
-	routes.SetupAPIRoutes(api, FileStorageHandler, AuthHandler)
-
-	return app
+type App struct {
+	Echo               *echo.Echo
+	DB                 *sqlx.DB
+	MinioHandler       *db.MinioHandler
+	FileStorageHandler *handlers.FileStorageHandler
+	AuthHandler        *handlers.AuthHandler
 }
 
-func InitServer(lifecycle fx.Lifecycle, app *echo.Echo) {
-	lifecycle.Append(fx.Hook{
-		OnStart: func(context.Context) error {
-			routes.StartTime = time.Now()
-			address := utils.GetServerAddress()
-			go func() {
-				if err := app.Start(address); err != nil {
-					log.Fatalf("Error starting server: %v", err)
-				}
-			}()
-			return nil
-		},
-		OnStop: func(ctx context.Context) error {
-			return app.Shutdown(ctx)
-		},
+func NewApp(
+	db *sqlx.DB,
+	minioHandler *db.MinioHandler,
+	fileStorageHandler *handlers.FileStorageHandler,
+	authHandler *handlers.AuthHandler,
+) *App {
+	e := echo.New()
+	middlewares.SetupMiddlewares(e)
+
+	api := e.Group("/api")
+	routes.SetupAPIRoutes(api, fileStorageHandler, authHandler)
+
+	return &App{
+		Echo:               e,
+		DB:                 db,
+		MinioHandler:       minioHandler,
+		FileStorageHandler: fileStorageHandler,
+		AuthHandler:        authHandler,
+	}
+}
+
+func (a *App) Start(ctx context.Context) error {
+	routes.StartTime = time.Now()
+	address := utils.GetServerAddress()
+	go func() {
+		if err := a.Echo.Start(address); err != nil {
+			log.Printf("Error starting server: %v", err)
+		}
+	}()
+	return nil
+}
+
+func (a *App) Stop(ctx context.Context) error {
+	return a.Echo.Shutdown(ctx)
+}
+
+//   - To future harsh -> we are not extending RegisterHooks function here because its being
+//     invoked separately which be proved by providers
+func RegisterHooks(lc fx.Lifecycle, app *App) {
+	lc.Append(fx.Hook{
+		OnStart: app.Start,
+		OnStop:  app.Stop,
 	})
 }
 
 func main() {
 	fx.New(
 		fx.Provide(
-			handlers.NewFilesHandler,
-			handlers.NewAuthHandler,
+			utils.LoadEnv,
 			db.CreatePostgresConnection,
 			db.CreateMinioClient,
-			CreateServer,
+			handlers.NewFilesHandler,
+			handlers.NewAuthHandler,
+			NewApp,
 		),
-		fx.Invoke(
-			utils.LoadEnv,
-			db.InitMinioClient,
-			InitServer,
-		),
+		fx.Invoke(RegisterHooks),
 	).Run()
 }
