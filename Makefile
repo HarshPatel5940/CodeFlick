@@ -4,7 +4,6 @@ all: build
 
 build:
 	@echo "Building..."
-
 	@go build -o main cmd/api/main.go
 
 # Run the application
@@ -19,18 +18,18 @@ clean:
 # Live Reload
 watch:
 	@if command -v air > /dev/null; then \
-	    air; \
-	    echo "Watching...";\
+		(air & templ generate --watch & ./tailwindcss -i ./static/css/input.css -o ./static/css/style.css --watch & wait); \
+		echo "Watching...";\
 	else \
-	    read -p "Go's 'air' is not installed on your machine. Do you want to install it? [Y/n] " choice; \
-	    if [ "$$choice" != "n" ] && [ "$$choice" != "N" ]; then \
-	        go install github.com/air-verse/air@latest; \
-	        air; \
-	        echo "Watching...";\
-	    else \
-	        echo "You chose not to install air. Exiting..."; \
-	        exit 1; \
-	    fi; \
+		read -p "Go's 'air' is not installed on your machine. Do you want to install it? [Y/n] " choice; \
+		if [ "$$choice" != "n" ] && [ "$$choice" != "N" ]; then \
+			go install github.com/air-verse/air@latest; \
+			(air & templ generate --watch & wait); \
+			echo "Watching...";\
+		else \
+			echo "You chose not to install air. Exiting..."; \
+			exit 1; \
+		fi; \
 	fi
 
 migrate-up:
@@ -42,6 +41,9 @@ migrate-down:
 	@go run cmd/migrate/main.go down
 
 lint:
+	@golangci-lint run
+
+lint-fix:
 	@golangci-lint run --fix
 
 docker-start:

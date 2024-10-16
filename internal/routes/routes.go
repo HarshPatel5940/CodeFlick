@@ -62,7 +62,3 @@ func SetupAPIRoutes(e *echo.Group,
 	// TODO: adminRoutes.GET("/users", FileStorageHandler.GetAllUsers)
 	// TODO: delete and update routes for users and gists
 }
-
-func SetupPagesRoutes(app *echo.Echo) {
-	app.File("/test/upload", "internal/public/index.html")
-}

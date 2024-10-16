@@ -3,7 +3,6 @@ package handlers
 import (
 	"bytes"
 	"context"
-	"database/sql"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -16,7 +15,6 @@ import (
 	"github.com/HarshPatel5940/CodeFlick/internal/db"
 	"github.com/HarshPatel5940/CodeFlick/internal/models"
 	"github.com/HarshPatel5940/CodeFlick/internal/utils"
-	"github.com/jmoiron/sqlx"
 	"github.com/labstack/echo/v4"
 	"github.com/minio/minio-go/v7"
 	"github.com/oklog/ulid/v2"
@@ -25,12 +23,14 @@ import (
 var MinioBucketName string = utils.GetEnv("MINIO_BUCKET_NAME", "codeflick")
 
 type FileStorageHandler struct {
-	db    *sqlx.DB
-	minio *minio.Client
+	gistDB  *db.GistDB
+	replyDB *db.ReplyDB
+	userDB  *db.UserDB
+	minio   *db.MinioHandler
 }
 
-func NewFilesHandler(db *sqlx.DB, minio *minio.Client) *FileStorageHandler {
-	return &FileStorageHandler{db, minio}
+func NewFilesHandler(gistDB *db.GistDB, replyDB *db.ReplyDB, userDB *db.UserDB, minio *db.MinioHandler) *FileStorageHandler {
+	return &FileStorageHandler{gistDB, replyDB, userDB, minio}
 }
 
 func (fh FileStorageHandler) UploadGist(c echo.Context) error {
@@ -79,21 +79,19 @@ func (fh FileStorageHandler) UploadGist(c echo.Context) error {
 			"details": err.Error(),
 		})
 	}
-	defer func() {
+	go func() {
 		if err := src.Close(); err != nil {
-			slog.Error("Failed to close file", "error", err)
+			slog.AnyValue(fmt.Errorf("Error while closing the file: %w", err))
 		}
 	}()
 
 	fileName := fmt.Sprintf("%s/%s", Gist.UserID, Gist.FileID)
 
 	fileInfo, err := fh.minio.PutObject(context.Background(),
-		MinioBucketName,
 		fileName,
 		src,
 		file.Size,
 		minio.PutObjectOptions{ContentType: file.Header.Get("Content-Type"), UserMetadata: map[string]string{"fileId": Gist.FileID}})
-	// Expires: <-time.After(time.Hour * 24 * 30) <- I thought of keeping expiring objects but change of plans i guess
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, map[string]any{
 			"success": false,
@@ -102,25 +100,10 @@ func (fh FileStorageHandler) UploadGist(c echo.Context) error {
 		})
 	}
 
-	Tx, err := fh.db.BeginTx(context.Background(), &sql.TxOptions{})
-	if err != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, map[string]any{
-			"success": false,
-			"message": "Failed to start a PostgreSQL transaction!",
-			"details": err.Error(),
-		})
-	}
-
-	defer func() {
-		if err := Tx.Rollback(); err != nil && err != sql.ErrTxDone {
-			slog.Error("Failed to rollback transaction", "error", err)
-		}
-	}()
-
-	_, err = Tx.Exec(db.InsertGist, Gist.UserID, Gist.FileID, Gist.GistTitle, Gist.ShortUrl, Gist.IsPublic)
+	err = fh.gistDB.InsertGist(context.Background(), Gist)
 	if err != nil {
 		if strings.Contains(err.Error(), "duplicate key value violates unique constraint") {
-			if err := fh.minio.RemoveObject(context.Background(), MinioBucketName, fileInfo.Key, minio.RemoveObjectOptions{}); err != nil {
+			if err := fh.minio.RemoveObject(context.Background(), fileName, minio.RemoveObjectOptions{}); err != nil {
 				return echo.NewHTTPError(http.StatusInternalServerError, map[string]any{
 					"success": false,
 					"message": "Failed to remove the file from minio!",
@@ -137,14 +120,6 @@ func (fh FileStorageHandler) UploadGist(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusInternalServerError, map[string]any{
 			"success": false,
 			"message": "Failed to insert gist into database!",
-			"details": err.Error(),
-		})
-	}
-
-	if err := Tx.Commit(); err != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, map[string]any{
-			"success": false,
-			"message": "Failed to commit the PostgreSQL transaction!",
 			"details": err.Error(),
 		})
 	}
@@ -191,61 +166,13 @@ func (fh FileStorageHandler) ListBuckets(c echo.Context) error {
 }
 
 func (fh FileStorageHandler) ListGists(c echo.Context) error {
-	var Gists []models.Gist
 	var User models.User = c.Get("UserSessionDetails").(models.User)
 
-	Tx, err := fh.db.BeginTx(context.Background(), &sql.TxOptions{})
-	if err != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, map[string]any{
-			"success": false,
-			"message": "Failed to start a PostgreSQL transaction!",
-			"details": err.Error(),
-		})
-	}
-	defer func() {
-		if err := Tx.Rollback(); err != nil && err != sql.ErrTxDone {
-			slog.Error("Failed to rollback transaction", "error", err)
-		}
-	}()
-
-	rows, err := Tx.QueryContext(context.Background(), db.GetGistsByUserID, User.ID)
+	gists, err := fh.gistDB.GetGistsByUserID(context.Background(), User.ID)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, map[string]any{
 			"success": false,
 			"message": "Failed to get gists from database!",
-			"details": err.Error(),
-		})
-	}
-
-	for rows.Next() {
-		var Gist models.Gist
-		err := rows.Scan(&Gist.FileID, &Gist.UserID, &Gist.GistTitle, &Gist.ForkedFrom, &Gist.ShortUrl,
-			&Gist.ViewCount, &Gist.IsPublic, &Gist.IsDeleted, &Gist.CreatedAt, &Gist.UpdatedAt)
-		if err != nil {
-			return echo.NewHTTPError(http.StatusInternalServerError, map[string]any{
-				"success": false,
-				"message": "Failed to scan gist from database!",
-				"details": err.Error(),
-			})
-		}
-
-		if !Gist.IsDeleted {
-			Gists = append(Gists, Gist)
-		}
-	}
-
-	if err := rows.Err(); err != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, map[string]any{
-			"success": false,
-			"message": "Failed to get gists from database!",
-			"details": err.Error(),
-		})
-	}
-
-	if err := Tx.Commit(); err != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, map[string]any{
-			"success": false,
-			"message": "Failed to commit the PostgreSQL transaction!",
 			"details": err.Error(),
 		})
 	}
@@ -253,12 +180,11 @@ func (fh FileStorageHandler) ListGists(c echo.Context) error {
 	return c.JSON(http.StatusOK, map[string]any{
 		"success": true,
 		"message": "Fetch all gists successfully!",
-		"data":    Gists,
+		"data":    gists,
 	})
 }
 
 func (fh FileStorageHandler) GetGist(c echo.Context) error {
-	var Gist models.Gist
 	GistUrl := c.Param("id")
 	GistID := c.QueryParam("gid")
 	if GistUrl == "" {
@@ -268,43 +194,11 @@ func (fh FileStorageHandler) GetGist(c echo.Context) error {
 		})
 	}
 
-	Tx, err := fh.db.BeginTx(context.Background(), &sql.TxOptions{})
+	Gist, err := fh.gistDB.GetGistByShortURL(context.Background(), GistUrl)
 	if err != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, map[string]any{
+		return echo.NewHTTPError(http.StatusNotFound, map[string]any{
 			"success": false,
-			"message": "Failed to start a PostgreSQL transaction!",
-			"details": err.Error(),
-		})
-	}
-	defer func() {
-		if err := Tx.Rollback(); err != nil && err != sql.ErrTxDone {
-			slog.Error("Failed to rollback transaction", "error", err)
-		}
-	}()
-
-	orgGistRow := fh.db.QueryRowContext(context.Background(), db.GetGistByShortURL, GistUrl)
-	err = orgGistRow.Scan(&Gist.FileID, &Gist.UserID, &Gist.ForkedFrom, &Gist.GistTitle, &Gist.ShortUrl,
-		&Gist.ViewCount, &Gist.IsPublic, &Gist.IsDeleted, &Gist.CreatedAt, &Gist.UpdatedAt)
-
-	if err := Tx.Commit(); err != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, map[string]any{
-			"success": false,
-			"message": "Failed to commit the PostgreSQL transaction!",
-			"details": err.Error(),
-		})
-	}
-
-	if err != nil {
-		if err == sql.ErrNoRows {
-			return echo.NewHTTPError(http.StatusNotFound, map[string]any{
-				"success": false,
-				"message": "Gist not found!",
-				"details": err.Error(),
-			})
-		}
-		return echo.NewHTTPError(http.StatusInternalServerError, map[string]any{
-			"success": false,
-			"message": "Failed to get gist from database!",
+			"message": "Gist not found!",
 			"details": err.Error(),
 		})
 	}
@@ -326,7 +220,7 @@ func (fh FileStorageHandler) GetGist(c echo.Context) error {
 	}
 	fileName := fmt.Sprintf("%s/%s", Gist.UserID, Gist.FileID)
 
-	gistData, err := fh.minio.GetObject(context.Background(), MinioBucketName, fileName, minio.GetObjectOptions{})
+	gistData, err := fh.minio.GetObject(context.Background(), fileName, minio.GetObjectOptions{})
 	if err != nil {
 		resp := minio.ToErrorResponse(err)
 
@@ -397,46 +291,21 @@ func (fh FileStorageHandler) GetGist(c echo.Context) error {
 
 func (fh FileStorageHandler) UpdateGist(c echo.Context) error {
 	currentTime := time.Now()
-	var Gist models.Gist
 	var User models.User = c.Get("UserSessionDetails").(models.User)
-	Gist.FileID = c.Param("id")
+	GistID := c.Param("id")
 
-	if Gist.FileID == "" {
+	if GistID == "" {
 		return echo.NewHTTPError(http.StatusBadRequest, map[string]any{
 			"success": false,
 			"message": "Gist ID is required!",
 		})
 	}
 
-	Tx, err := fh.db.BeginTx(context.Background(), &sql.TxOptions{})
+	Gist, err := fh.gistDB.GetGistByID(context.Background(), GistID)
 	if err != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, map[string]any{
+		return echo.NewHTTPError(http.StatusNotFound, map[string]any{
 			"success": false,
-			"message": "Failed to start a PostgreSQL transaction!",
-			"details": err.Error(),
-		})
-	}
-	defer func() {
-		if err := Tx.Rollback(); err != nil && err != sql.ErrTxDone {
-			slog.Error("Failed to rollback transaction", "error", err)
-		}
-	}()
-
-	orgGistRow := Tx.QueryRowContext(context.Background(), db.GetGistByID, Gist.FileID)
-	err = orgGistRow.Scan(&Gist.FileID, &Gist.UserID, &Gist.ForkedFrom, &Gist.GistTitle, &Gist.ShortUrl,
-		&Gist.ViewCount, &Gist.IsPublic, &Gist.IsDeleted, &Gist.CreatedAt, &Gist.UpdatedAt)
-	if err != nil {
-		if err == sql.ErrNoRows {
-			return echo.NewHTTPError(http.StatusNotFound, map[string]any{
-				"success": false,
-				"message": "Failed to update gist from database!",
-				"details": fmt.Sprintf("Not Found Gists with ID `%s` with the linked User ID `%s`", Gist.FileID, User.ID),
-			})
-		}
-
-		return echo.NewHTTPError(http.StatusInternalServerError, map[string]any{
-			"success": false,
-			"message": "Failed to get gist from database!",
+			"message": "Gist not found!",
 			"details": err.Error(),
 		})
 	}
@@ -463,20 +332,13 @@ func (fh FileStorageHandler) UpdateGist(c echo.Context) error {
 		IsPublic = Gist.IsPublic
 	}
 
-	slog.Info(Gist.FileID, Gist.UserID, GistTitle, ShortUrl, IsPublic)
+	Gist.GistTitle = GistTitle
+	Gist.ShortUrl = ShortUrl
+	Gist.IsPublic = IsPublic
+	Gist.UpdatedAt = currentTime
 
-	var returnGistId string
-	row := Tx.QueryRowContext(context.Background(), db.UpdateGist, Gist.FileID, Gist.UserID, GistTitle, ShortUrl, IsPublic, currentTime)
-	err = row.Scan(&returnGistId)
+	returnGistId, err := fh.gistDB.UpdateGist(context.Background(), Gist)
 	if err != nil {
-		if err == sql.ErrNoRows {
-			return echo.NewHTTPError(http.StatusNotFound, map[string]any{
-				"success": false,
-				"message": "Failed to update gist from database!",
-				"details": fmt.Sprintf("Not Found Gists with ID `%s` with the linked User ID `%s`", Gist.FileID, User.ID),
-			})
-		}
-
 		if strings.Contains(err.Error(), "duplicate key value violates unique constraint") {
 			return echo.NewHTTPError(http.StatusConflict, map[string]any{
 				"success": false,
@@ -487,15 +349,7 @@ func (fh FileStorageHandler) UpdateGist(c echo.Context) error {
 
 		return echo.NewHTTPError(http.StatusInternalServerError, map[string]any{
 			"success": false,
-			"message": "Failed to update gist from database!",
-			"details": err.Error(),
-		})
-	}
-
-	if err := Tx.Commit(); err != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, map[string]any{
-			"success": false,
-			"message": "Failed to commit the PostgreSQL transaction!",
+			"message": "Failed to update gist in database!",
 			"details": err.Error(),
 		})
 	}
@@ -530,16 +384,15 @@ func (fh FileStorageHandler) UpdateGist(c echo.Context) error {
 			"details": err.Error(),
 		})
 	}
-	defer func() {
+	go func() {
 		if err := src.Close(); err != nil {
-			slog.Error("Failed to close the file", "error", err)
+			slog.AnyValue(fmt.Errorf("Error while closing the file: %w", err))
 		}
 	}()
 
 	fileName := fmt.Sprintf("%s/%s", Gist.UserID, Gist.FileID)
 
 	_, err = fh.minio.PutObject(context.Background(),
-		MinioBucketName,
 		fileName,
 		src,
 		file.Size,
@@ -562,7 +415,6 @@ func (fh FileStorageHandler) UpdateGist(c echo.Context) error {
 func (fh FileStorageHandler) DeleteGist(c echo.Context) error {
 	var User models.User = c.Get("UserSessionDetails").(models.User)
 	GistId := c.Param("id")
-	var returnGistId string
 
 	if GistId == "" {
 		return echo.NewHTTPError(http.StatusBadRequest, map[string]any{
@@ -571,42 +423,11 @@ func (fh FileStorageHandler) DeleteGist(c echo.Context) error {
 		})
 	}
 
-	Tx, err := fh.db.BeginTx(context.Background(), &sql.TxOptions{})
+	returnGistId, err := fh.gistDB.DeleteGist(context.Background(), GistId, User.ID)
 	if err != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, map[string]any{
-			"success": false,
-			"message": "Failed to start a PostgreSQL transaction!",
-			"details": err.Error(),
-		})
-	}
-	defer func() {
-		if err := Tx.Rollback(); err != nil && err != sql.ErrTxDone {
-			slog.Error("Failed to rollback transaction", "error", err)
-		}
-	}()
-
-	row := Tx.QueryRowContext(context.Background(), db.DeleteGist, GistId, User.ID, time.Now())
-	err = row.Scan(&returnGistId)
-	if err != nil {
-		if err == sql.ErrNoRows {
-			return echo.NewHTTPError(http.StatusNotFound, map[string]any{
-				"success": false,
-				"message": "Failed to update gist from database!",
-				"details": fmt.Sprintf("Not Found Gists with ID `%s` with the linked User ID `%s`", GistId, User.ID),
-			})
-		}
-
 		return echo.NewHTTPError(http.StatusInternalServerError, map[string]any{
 			"success": false,
 			"message": "Failed to delete gist from database!",
-			"details": err.Error(),
-		})
-	}
-
-	if err := Tx.Commit(); err != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, map[string]any{
-			"success": false,
-			"message": "Failed to commit the PostgreSQL transaction!",
 			"details": err.Error(),
 		})
 	}
@@ -619,8 +440,6 @@ func (fh FileStorageHandler) DeleteGist(c echo.Context) error {
 }
 
 func (fh FileStorageHandler) GetGistReplies(c echo.Context) error {
-	var replies []models.Reply = make([]models.Reply, 0)
-	var Gist models.Gist
 	GistID := c.Param("id")
 
 	slog.Debug("Fetching Gist Replies")
@@ -632,34 +451,11 @@ func (fh FileStorageHandler) GetGistReplies(c echo.Context) error {
 		})
 	}
 
-	Tx, err := fh.db.BeginTx(context.Background(), &sql.TxOptions{})
+	Gist, err := fh.gistDB.GetGistByID(context.Background(), GistID)
 	if err != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, map[string]any{
+		return echo.NewHTTPError(http.StatusNotFound, map[string]any{
 			"success": false,
-			"message": "Failed to start a PostgreSQL transaction!",
-			"details": err.Error(),
-		})
-	}
-	defer func() {
-		if err := Tx.Rollback(); err != nil && err != sql.ErrTxDone {
-			slog.Error("Failed to rollback transaction", "error", err)
-		}
-	}()
-
-	gistRow := Tx.QueryRowContext(context.Background(), db.GetGistByID, GistID)
-
-	err = gistRow.Scan(&Gist.FileID, &Gist.UserID, &Gist.GistTitle, &Gist.ShortUrl, &Gist.ForkedFrom, &Gist.ViewCount, &Gist.IsPublic, &Gist.IsDeleted, &Gist.CreatedAt, &Gist.UpdatedAt)
-	if err != nil {
-		if err == sql.ErrNoRows {
-			return echo.NewHTTPError(http.StatusNotFound, map[string]any{
-				"success": false,
-				"message": "Gist not found!",
-				"details": err.Error(),
-			})
-		}
-		return echo.NewHTTPError(http.StatusInternalServerError, map[string]any{
-			"success": false,
-			"message": "Failed to get gist from database!",
+			"message": "Gist not found!",
 			"details": err.Error(),
 		})
 	}
@@ -671,34 +467,13 @@ func (fh FileStorageHandler) GetGistReplies(c echo.Context) error {
 		})
 	}
 
-	rows, err := Tx.QueryContext(context.Background(), db.GetRepliesByGistID, GistID)
+	replies, err := fh.replyDB.GetRepliesByGistID(context.Background(), GistID)
 	if err != nil {
-		if err == sql.ErrNoRows {
-			return c.JSON(http.StatusOK, map[string]any{
-				"success": true,
-				"message": "Replies fetched successfully!",
-				"data":    []models.Reply{},
-			})
-		}
-
 		return echo.NewHTTPError(http.StatusInternalServerError, map[string]any{
 			"success": false,
 			"message": "Failed to get replies from database!",
 			"details": err.Error(),
 		})
-	}
-
-	var reply models.Reply
-	for rows.Next() {
-		err = rows.Scan(&reply.ID, &reply.GistID, &reply.UserID, &reply.Message, &reply.IsDeleted, &reply.CreatedAt, &reply.UpdatedAt)
-		if err != nil {
-			return echo.NewHTTPError(http.StatusInternalServerError, map[string]any{
-				"success": false,
-				"message": "Failed to scan replies from databaseuuu!",
-				"details": err.Error(),
-			})
-		}
-		replies = append(replies, reply)
 	}
 
 	return c.JSON(http.StatusOK, map[string]any{
@@ -711,10 +486,8 @@ func (fh FileStorageHandler) GetGistReplies(c echo.Context) error {
 func (fh FileStorageHandler) InsertGistReply(c echo.Context) error {
 	currentTime := time.Now().UTC()
 	GistID := c.Param("id")
-	var Gist models.Gist
 	var User models.User = c.Get("UserSessionDetails").(models.User)
 	var reply models.Reply = models.Reply{ID: ulid.Make().String(), UserID: User.ID, GistID: GistID, CreatedAt: currentTime, UpdatedAt: currentTime}
-	// TODO: Use binds here provided by echo here
 
 	if GistID == "" {
 		return echo.NewHTTPError(http.StatusBadRequest, map[string]any{
@@ -722,9 +495,7 @@ func (fh FileStorageHandler) InsertGistReply(c echo.Context) error {
 			"message": "Gist ID is required!",
 		})
 	}
-	body := c.Request().Body
-	err := json.NewDecoder(body).Decode(&reply)
-	if err != nil {
+	if err := c.Bind(&reply); err != nil {
 		return echo.NewHTTPError(http.StatusBadRequest, map[string]any{
 			"success": false,
 			"message": "Failed to decode request body!",
@@ -732,51 +503,20 @@ func (fh FileStorageHandler) InsertGistReply(c echo.Context) error {
 		})
 	}
 
-	Tx, err := fh.db.BeginTx(context.Background(), &sql.TxOptions{})
+	_, err := fh.gistDB.GetGistByID(context.Background(), GistID)
 	if err != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, map[string]any{
+		return echo.NewHTTPError(http.StatusNotFound, map[string]any{
 			"success": false,
-			"message": "Failed to start a PostgreSQL transaction!",
-			"details": err.Error(),
-		})
-	}
-	defer func() {
-		if err := Tx.Rollback(); err != nil && err != sql.ErrTxDone {
-			slog.Error("Failed to rollback transaction", "error", err)
-		}
-	}()
-
-	row := Tx.QueryRowContext(context.Background(), db.GetGistByID, GistID)
-	err = row.Scan(&Gist.FileID, &Gist.UserID, &Gist.GistTitle, &Gist.ShortUrl, &Gist.ForkedFrom, &Gist.ViewCount, &Gist.IsPublic, &Gist.IsDeleted, &Gist.CreatedAt, &Gist.UpdatedAt)
-	if err != nil {
-		if err == sql.ErrNoRows {
-			return echo.NewHTTPError(http.StatusNotFound, map[string]any{
-				"success": false,
-				"message": "Gist not found!",
-				"details": err.Error(),
-			})
-		}
-
-		return echo.NewHTTPError(http.StatusInternalServerError, map[string]any{
-			"success": false,
-			"message": "Failed to get gist from database!",
+			"message": "Gist not found!",
 			"details": err.Error(),
 		})
 	}
 
-	_, err = Tx.ExecContext(context.Background(), db.InsertReply, reply.ID, reply.UserID, reply.GistID, reply.Message)
+	err = fh.replyDB.InsertReply(context.Background(), reply)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, map[string]any{
 			"success": false,
 			"message": "Failed to add the reply!",
-			"details": err.Error(),
-		})
-	}
-
-	if err := Tx.Commit(); err != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, map[string]any{
-			"success": false,
-			"message": "Failed to commit the PostgreSQL transaction!",
 			"details": err.Error(),
 		})
 	}
@@ -809,9 +549,7 @@ func (fh FileStorageHandler) UpdateGistReply(c echo.Context) error {
 		})
 	}
 
-	body := c.Request().Body
-	err := json.NewDecoder(body).Decode(&reply)
-	if err != nil {
+	if err := c.Bind(&reply); err != nil {
 		return echo.NewHTTPError(http.StatusBadRequest, map[string]any{
 			"success": false,
 			"message": "Failed to decode request body!",
@@ -819,71 +557,41 @@ func (fh FileStorageHandler) UpdateGistReply(c echo.Context) error {
 		})
 	}
 
-	Tx, err := fh.db.BeginTx(context.Background(), &sql.TxOptions{})
+	existingReply, err := fh.replyDB.GetReplyByID(context.Background(), replyID, gistID)
 	if err != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, map[string]any{
+		return echo.NewHTTPError(http.StatusNotFound, map[string]any{
 			"success": false,
-			"message": "Failed to start a PostgreSQL transaction!",
-			"details": err.Error(),
-		})
-	}
-	defer func() {
-		if err := Tx.Rollback(); err != nil && err != sql.ErrTxDone {
-			slog.Error("Failed to rollback transaction", "error", err)
-		}
-	}()
-
-	ReplyRow := Tx.QueryRowContext(context.Background(), db.GetReplyByID, replyID, gistID)
-	err = ReplyRow.Scan(&reply.ID, &reply.UserID, &reply.GistID, &reply.Message, &reply.IsDeleted, &reply.CreatedAt, &reply.UpdatedAt)
-	if err != nil {
-		if err == sql.ErrNoRows {
-			return echo.NewHTTPError(http.StatusNotFound, map[string]any{
-				"success": false,
-				"message": "Reply not found!",
-				"details": err.Error(),
-			})
-		}
-		return echo.NewHTTPError(http.StatusInternalServerError, map[string]any{
-			"success": false,
-			"message": "Failed to get reply from database!",
+			"message": "Reply not found!",
 			"details": err.Error(),
 		})
 	}
 
-	if reply.UserID != User.ID {
+	if existingReply.UserID != User.ID {
 		return echo.NewHTTPError(http.StatusUnauthorized, map[string]any{
 			"success": false,
 			"message": "You are not allowed to update others reply!",
 		})
 	}
 
-	if reply.GistID != gistID {
+	if existingReply.GistID != gistID {
 		return echo.NewHTTPError(http.StatusBadRequest, map[string]any{
 			"success": false,
 			"message": "Reply does not belong to the Gist!",
 		})
 	}
 
-	if reply.IsDeleted {
+	if existingReply.IsDeleted {
 		return echo.NewHTTPError(http.StatusBadRequest, map[string]any{
 			"success": false,
 			"message": "Reply is Deleted! Can't Update it!",
 		})
 	}
 
-	_, err = Tx.ExecContext(context.Background(), db.UpdateReply, replyID, User.ID, gistID, reply.Message, reply.UpdatedAt)
+	err = fh.replyDB.UpdateReply(context.Background(), reply)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, map[string]any{
 			"success": false,
-			"message": "Failed to add the reply!",
-			"details": err.Error(),
-		})
-	}
-
-	if err := Tx.Commit(); err != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, map[string]any{
-			"success": false,
-			"message": "Failed to commit the PostgreSQL transaction!",
+			"message": "Failed to update the reply!",
 			"details": err.Error(),
 		})
 	}
@@ -898,9 +606,7 @@ func (fh FileStorageHandler) UpdateGistReply(c echo.Context) error {
 func (fh FileStorageHandler) DeleteGistReply(c echo.Context) error {
 	gistID := c.Param("id")
 	replyID := c.Param("reply_id")
-	currentTime := time.Now().UTC()
 	var User models.User = c.Get("UserSessionDetails").(models.User)
-	var reply models.Reply = models.Reply{ID: replyID, GistID: gistID, UserID: User.ID, UpdatedAt: currentTime}
 
 	if gistID == "" {
 		return echo.NewHTTPError(http.StatusBadRequest, map[string]any{
@@ -916,33 +622,11 @@ func (fh FileStorageHandler) DeleteGistReply(c echo.Context) error {
 		})
 	}
 
-	Tx, err := fh.db.BeginTx(context.Background(), &sql.TxOptions{})
+	reply, err := fh.replyDB.GetReplyByID(context.Background(), replyID, gistID)
 	if err != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, map[string]any{
+		return echo.NewHTTPError(http.StatusNotFound, map[string]any{
 			"success": false,
-			"message": "Failed to start a PostgreSQL transaction!",
-			"details": err.Error(),
-		})
-	}
-	defer func() {
-		if err := Tx.Rollback(); err != nil && err != sql.ErrTxDone {
-			slog.Error("Failed to rollback transaction", "error", err)
-		}
-	}()
-
-	ReplyRow := Tx.QueryRowContext(context.Background(), db.GetReplyByID, replyID, gistID)
-	err = ReplyRow.Scan(&reply.ID, &reply.UserID, &reply.GistID, &reply.Message, &reply.IsDeleted, &reply.CreatedAt, &reply.UpdatedAt)
-	if err != nil {
-		if err == sql.ErrNoRows {
-			return echo.NewHTTPError(http.StatusNotFound, map[string]any{
-				"success": false,
-				"message": "Reply not found!",
-				"details": err.Error(),
-			})
-		}
-		return echo.NewHTTPError(http.StatusInternalServerError, map[string]any{
-			"success": false,
-			"message": "Failed to get reply from database!",
+			"message": "Reply not found!",
 			"details": err.Error(),
 		})
 	}
@@ -950,7 +634,7 @@ func (fh FileStorageHandler) DeleteGistReply(c echo.Context) error {
 	if reply.UserID != User.ID {
 		return echo.NewHTTPError(http.StatusUnauthorized, map[string]any{
 			"success": false,
-			"message": "You are not allowed to update others reply!",
+			"message": "You are not allowed to delete others reply!",
 		})
 	}
 
@@ -968,19 +652,11 @@ func (fh FileStorageHandler) DeleteGistReply(c echo.Context) error {
 		})
 	}
 
-	_, err = Tx.ExecContext(context.Background(), db.DeleteReply, replyID, User.ID, gistID, currentTime)
+	err = fh.replyDB.DeleteReply(context.Background(), replyID, User.ID, gistID)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, map[string]any{
 			"success": false,
 			"message": "Failed to delete the reply!",
-			"details": err.Error(),
-		})
-	}
-
-	if err := Tx.Commit(); err != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, map[string]any{
-			"success": false,
-			"message": "Failed to commit the PostgreSQL transaction!",
 			"details": err.Error(),
 		})
 	}
