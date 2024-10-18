@@ -20,6 +20,10 @@ type ReplyDB struct {
 	db *sqlx.DB
 }
 
+func NewReplyDB(db *sqlx.DB) *ReplyDB {
+	return &ReplyDB{db: db}
+}
+
 func (r *ReplyDB) GetRepliesByGistID(ctx context.Context, gistID string) ([]models.Reply, error) {
 	var replies []models.Reply
 	err := r.db.SelectContext(ctx, &replies, getRepliesByGistID, gistID)

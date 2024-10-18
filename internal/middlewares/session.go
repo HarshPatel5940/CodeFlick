@@ -5,7 +5,7 @@ import (
 	"net/http"
 
 	"github.com/HarshPatel5940/CodeFlick/internal/models"
-	"github.com/HarshPatel5940/CodeFlick/internal/utils"
+	"github.com/gorilla/sessions"
 	"github.com/labstack/echo-contrib/session"
 	"github.com/labstack/echo/v4"
 )
@@ -20,6 +20,15 @@ const (
 
 type Config struct {
 	RequiredAccess AccessLevel
+}
+
+func GetSessionValue[T any](s *sessions.Session, key string, defaultValue T) T {
+	if value, ok := s.Values[key]; ok {
+		if typedValue, ok := value.(T); ok {
+			return typedValue
+		}
+	}
+	return defaultValue
 }
 
 func SessionMiddleware(config Config) echo.MiddlewareFunc {
@@ -41,7 +50,7 @@ func SessionMiddleware(config Config) echo.MiddlewareFunc {
 				}
 			}
 
-			userID := utils.GetSessionValue(sess, "user_id", "")
+			userID := GetSessionValue(sess, "user_id", "")
 			if userID == "" && config.RequiredAccess != AccessLevelAll {
 				return echo.NewHTTPError(http.StatusUnauthorized, map[string]any{
 					"success": false,
@@ -51,12 +60,12 @@ func SessionMiddleware(config Config) echo.MiddlewareFunc {
 
 			User := models.User{
 				ID:           userID,
-				Name:         utils.GetSessionValue(sess, "name", ""),
-				Email:        utils.GetSessionValue(sess, "email", ""),
-				AuthProvider: utils.GetSessionValue(sess, "auth_provider", ""),
-				IsAdmin:      utils.GetSessionValue(sess, "isAdmin", false),
-				IsPremium:    utils.GetSessionValue(sess, "isPremium", false),
-				IsDeleted:    utils.GetSessionValue(sess, "isDeleted", false),
+				Name:         GetSessionValue(sess, "name", ""),
+				Email:        GetSessionValue(sess, "email", ""),
+				AuthProvider: GetSessionValue(sess, "auth_provider", ""),
+				IsAdmin:      GetSessionValue(sess, "isAdmin", false),
+				IsPremium:    GetSessionValue(sess, "isPremium", false),
+				IsDeleted:    GetSessionValue(sess, "isDeleted", false),
 			}
 
 			if config.RequiredAccess == AccessLevelAdmin && !User.IsAdmin {

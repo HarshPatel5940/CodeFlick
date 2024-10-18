@@ -1,0 +1,21 @@
+package pages
+
+templ Home() {
+	<html>
+		<head>
+			<meta name="description" content="Find movies!"/>
+			<meta name="viewport" content="width=device-width, initial-scale=1"/>
+			<meta charset="utf-8"/>
+			<link rel="stylesheet" href="/public/styles.css"/>
+			<script src="/public/vendor/htmx.js" defer></script>
+		</head>
+		<body class="h-full" hx-boost="true">
+			<section class="flex flex-col gap-8">
+				<h1 class="text-4xl">
+					<strong>Hello World :D</strong>
+				</h1>
+				<p>This page build with Go, Templ, HTMX, Tailwind, Alphine... Trying new approaches to do same things.</p>
+			</section>
+		</body>
+	</html>
+}

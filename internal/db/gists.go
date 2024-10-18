@@ -21,6 +21,10 @@ type GistDB struct {
 	db *sqlx.DB
 }
 
+func NewGistDB(db *sqlx.DB) *GistDB {
+	return &GistDB{db: db}
+}
+
 func (g *GistDB) GetGistByID(ctx context.Context, gistID string) (models.Gist, error) {
 	var gist models.Gist
 	err := g.db.GetContext(ctx, &gist, getGistByID, gistID)
