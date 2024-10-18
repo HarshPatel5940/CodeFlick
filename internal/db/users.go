@@ -18,6 +18,10 @@ type UserDB struct {
 	db *sqlx.DB
 }
 
+func NewUserDB(db *sqlx.DB) *UserDB {
+	return &UserDB{db: db}
+}
+
 func (u *UserDB) GetUserByID(ctx context.Context, userID string) (models.User, error) {
 	var user models.User
 	err := u.db.GetContext(ctx, &user, getUserByID, userID)

@@ -16,6 +16,8 @@ main
 .env
 .env.local
 
+*_templ.go
+
 # Test binary, built with `go test -c`
 *.test
 

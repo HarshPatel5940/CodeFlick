@@ -6,6 +6,7 @@ import (
 
 	"github.com/HarshPatel5940/CodeFlick/internal/handlers"
 	"github.com/HarshPatel5940/CodeFlick/internal/middlewares"
+	"github.com/HarshPatel5940/CodeFlick/internal/pages"
 	"github.com/labstack/echo/v4"
 )
 
@@ -61,4 +62,10 @@ func SetupAPIRoutes(e *echo.Group,
 	adminRoutes.GET("/buckets/:bucket", FileStorageHandler.ListAllFiles)
 	// TODO: adminRoutes.GET("/users", FileStorageHandler.GetAllUsers)
 	// TODO: delete and update routes for users and gists
+}
+
+func SetupPageRoutes(e *echo.Group) {
+	e.GET("", func(c echo.Context) error {
+		return pages.Render(c, http.StatusOK, pages.Home())
+	})
 }
