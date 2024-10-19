@@ -33,7 +33,7 @@ func NewFilesHandler(gistDB *db.GistDB, replyDB *db.ReplyDB, userDB *db.UserDB, 
 	return &FileStorageHandler{gistDB, replyDB, userDB, minio}
 }
 
-func (fh FileStorageHandler) UploadGist(c echo.Context) error {
+func (fh *FileStorageHandler) UploadGist(c echo.Context) error {
 	var User models.User = c.Get("UserSessionDetails").(models.User)
 	var Gist models.Gist
 	Gist.UserID = User.ID
@@ -133,7 +133,7 @@ func (fh FileStorageHandler) UploadGist(c echo.Context) error {
 	})
 }
 
-func (fh FileStorageHandler) ListBuckets(c echo.Context) error {
+func (fh *FileStorageHandler) ListBuckets(c echo.Context) error {
 	var User models.User = c.Get("UserSessionDetails").(models.User)
 	if !User.IsAdmin {
 		return echo.NewHTTPError(http.StatusUnauthorized, map[string]any{
@@ -165,7 +165,7 @@ func (fh FileStorageHandler) ListBuckets(c echo.Context) error {
 	})
 }
 
-func (fh FileStorageHandler) ListGists(c echo.Context) error {
+func (fh *FileStorageHandler) ListGists(c echo.Context) error {
 	var User models.User = c.Get("UserSessionDetails").(models.User)
 
 	gists, err := fh.gistDB.GetGistsByUserID(context.Background(), User.ID)
@@ -184,7 +184,7 @@ func (fh FileStorageHandler) ListGists(c echo.Context) error {
 	})
 }
 
-func (fh FileStorageHandler) GetGist(c echo.Context) error {
+func (fh *FileStorageHandler) GetGist(c echo.Context) error {
 	GistUrl := c.Param("id")
 	GistID := c.QueryParam("gid")
 	if GistUrl == "" {
@@ -289,7 +289,7 @@ func (fh FileStorageHandler) GetGist(c echo.Context) error {
 	return c.Blob(http.StatusOK, "application/octet-stream", buffer.Bytes())
 }
 
-func (fh FileStorageHandler) UpdateGist(c echo.Context) error {
+func (fh *FileStorageHandler) UpdateGist(c echo.Context) error {
 	currentTime := time.Now()
 	var User models.User = c.Get("UserSessionDetails").(models.User)
 	GistID := c.Param("id")
@@ -412,7 +412,7 @@ func (fh FileStorageHandler) UpdateGist(c echo.Context) error {
 	})
 }
 
-func (fh FileStorageHandler) DeleteGist(c echo.Context) error {
+func (fh *FileStorageHandler) DeleteGist(c echo.Context) error {
 	var User models.User = c.Get("UserSessionDetails").(models.User)
 	GistId := c.Param("id")
 
@@ -439,7 +439,7 @@ func (fh FileStorageHandler) DeleteGist(c echo.Context) error {
 	})
 }
 
-func (fh FileStorageHandler) GetGistReplies(c echo.Context) error {
+func (fh *FileStorageHandler) GetGistReplies(c echo.Context) error {
 	GistID := c.Param("id")
 
 	slog.Debug("Fetching Gist Replies")
@@ -483,7 +483,7 @@ func (fh FileStorageHandler) GetGistReplies(c echo.Context) error {
 	})
 }
 
-func (fh FileStorageHandler) InsertGistReply(c echo.Context) error {
+func (fh *FileStorageHandler) InsertGistReply(c echo.Context) error {
 	currentTime := time.Now().UTC()
 	GistID := c.Param("id")
 	var User models.User = c.Get("UserSessionDetails").(models.User)
@@ -528,7 +528,7 @@ func (fh FileStorageHandler) InsertGistReply(c echo.Context) error {
 	})
 }
 
-func (fh FileStorageHandler) UpdateGistReply(c echo.Context) error {
+func (fh *FileStorageHandler) UpdateGistReply(c echo.Context) error {
 	gistID := c.Param("id")
 	replyID := c.Param("reply_id")
 	currentTime := time.Now().UTC()
@@ -603,7 +603,7 @@ func (fh FileStorageHandler) UpdateGistReply(c echo.Context) error {
 	})
 }
 
-func (fh FileStorageHandler) DeleteGistReply(c echo.Context) error {
+func (fh *FileStorageHandler) DeleteGistReply(c echo.Context) error {
 	gistID := c.Param("id")
 	replyID := c.Param("reply_id")
 	var User models.User = c.Get("UserSessionDetails").(models.User)
@@ -667,6 +667,6 @@ func (fh FileStorageHandler) DeleteGistReply(c echo.Context) error {
 	})
 }
 
-func (fh FileStorageHandler) ListAllFiles(c echo.Context) error {
+func (fh *FileStorageHandler) ListAllFiles(c echo.Context) error {
 	return nil
 }

@@ -23,10 +23,6 @@ type AuthHandler struct {
 	sessionAge int
 }
 
-type contextKey string
-
-const providerKey contextKey = "provider"
-
 func NewAuthHandler(userDB *db.UserDB) *AuthHandler {
 	InitialiseAuth()
 	sessionAge, err := strconv.Atoi(utils.GetEnv("GORILLA_SESSIONS_MAXAGE", "604800"))
@@ -55,11 +51,11 @@ func InitialiseAuth() {
 	)
 }
 
-func (ah AuthHandler) GoogleOauthLogin(c echo.Context) error {
+func (ah *AuthHandler) GoogleOauthLogin(c echo.Context) error {
 	sess, err := session.Get("session", c)
 
 	if err != nil || sess.Values["user_id"] == nil || sess.Values["user_id"] == "" {
-		ctx := context.WithValue(c.Request().Context(), providerKey, "google")
+		ctx := context.WithValue(c.Request().Context(), "provider", "google")
 		gothic.BeginAuthHandler(c.Response(), c.Request().WithContext(ctx))
 	}
 
@@ -77,7 +73,7 @@ func (ah AuthHandler) GoogleOauthLogin(c echo.Context) error {
 	})
 }
 
-func (ah AuthHandler) GoogleOauthCallback(c echo.Context) error {
+func (ah *AuthHandler) GoogleOauthCallback(c echo.Context) error {
 	GothUser, err := gothic.CompleteUserAuth(c.Response(), c.Request())
 	if err != nil {
 		return err
@@ -141,7 +137,7 @@ func (ah AuthHandler) GoogleOauthCallback(c echo.Context) error {
 	})
 }
 
-func (ah AuthHandler) GetSessionDetails(c echo.Context) error {
+func (ah *AuthHandler) GetSessionDetails(c echo.Context) error {
 	var sess models.User = c.Get("UserSessionDetails").(models.User)
 
 	return c.JSON(200, map[string]any{

@@ -8,6 +8,7 @@ run:
 clean:
 	@echo "Cleaning..."
 	@rm -f main
+	@kill -15 $(lsof -ti:8080)
 
 migrate-up:
 	@echo "Migrating up..."

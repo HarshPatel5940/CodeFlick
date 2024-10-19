@@ -5,6 +5,7 @@ args_bin = []
 bin = "./main"
 pre_cmd = ["make build-tailwind", "make build-templ"]
 cmd = "make build"
+post_cmd = ["make clean"]
 delay = 0
 exclude_dir = ["public", "tmp", "vendor", "testdata"]
 exclude_file = []
@@ -20,9 +21,9 @@ log = "build-errors.log"
 poll = false
 poll_interval = 0
 rerun = false
-rerun_delay = 1000
+rerun_delay = 500
 send_interrupt = false
-stop_on_error = true
+stop_on_error = false
 
 [color]
 app = ""

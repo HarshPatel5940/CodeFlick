@@ -9,13 +9,23 @@ templ Home() {
 			<link rel="stylesheet" href="/public/styles.css"/>
 			<script src="/public/vendor/htmx.js" defer></script>
 		</head>
-		<body class="h-full" hx-boost="true">
-			<section class="flex flex-col gap-8">
-				<h1 class="text-4xl">
-					<strong>Hello World :D</strong>
-				</h1>
-				<p>This page build with Go, Templ, HTMX, Tailwind, Alphine... Trying new approaches to do same things.</p>
-			</section>
+		<body class="h-full w-full bg-black/95 text-white" hx-boost="true">
+
+			<div class="flex flex-col h-full">
+				<header class="p-4">
+					<img src="/public/codeflick-logo.png" alt="logo" class="w-8"/>
+				</header>
+
+				<main class="flex-1 p-4">
+					<h1 class="text-9xl font-bold font-mono tracking-wider">CodeFlick</h1>
+                    <p class="text-lg">Flick it, share it! Open-source Gists for the dev community.</p>
+				</main>
+
+				<div>Seems like you have come to our backend server. Let me warn you not to play around here.</div>
+			</div>
 		</body>
+		<footer class="p-4">
+			<p>&copy; 2024 @HarshPatel5940</p>
+		</footer>
 	</html>
 }
