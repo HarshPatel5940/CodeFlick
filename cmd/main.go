@@ -5,6 +5,9 @@ import (
 	"log"
 	"time"
 
+	"net/http"
+	_ "net/http/pprof"
+
 	"github.com/HarshPatel5940/CodeFlick/internal/db"
 	"github.com/HarshPatel5940/CodeFlick/internal/handlers"
 	"github.com/HarshPatel5940/CodeFlick/internal/middlewares"
@@ -56,6 +59,9 @@ func (a *App) Start(ctx context.Context) error {
 		if err := a.Echo.Start(address); err != nil {
 			log.Printf("Error starting server: %v", err)
 		}
+	}()
+	go func() {
+		log.Println(http.ListenAndServe("localhost:6060", nil))
 	}()
 	return nil
 }

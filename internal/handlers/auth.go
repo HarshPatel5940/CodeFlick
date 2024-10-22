@@ -53,10 +53,23 @@ func InitialiseAuth() {
 
 func (ah *AuthHandler) GoogleOauthLogin(c echo.Context) error {
 	sess, err := session.Get("session", c)
+	redirectParam := c.QueryParam("r")
 
 	if err != nil || sess.Values["user_id"] == nil || sess.Values["user_id"] == "" {
 		ctx := context.WithValue(c.Request().Context(), "provider", "google")
+
+		if redirectParam != "" {
+			sess.Values["oauth_redirect"] = redirectParam
+			if err := sess.Save(c.Request(), c.Response()); err != nil {
+				return echo.NewHTTPError(http.StatusInternalServerError, "Failed to save session")
+			}
+		}
+
 		gothic.BeginAuthHandler(c.Response(), c.Request().WithContext(ctx))
+	}
+
+	if redirectParam != "" {
+		return c.Redirect(http.StatusFound, "/")
 	}
 
 	return c.JSON(200, map[string]any{
@@ -96,7 +109,6 @@ func (ah *AuthHandler) GoogleOauthCallback(c echo.Context) error {
 
 	User, err := ah.userDB.GetUserByEmail(context.Background(), GothUser.Email)
 	if err != nil {
-		// If user doesn't exist, create a new one
 		User = models.User{
 			ID:           ulid.Make().String(),
 			Name:         GothUser.Name,
@@ -129,6 +141,20 @@ func (ah *AuthHandler) GoogleOauthCallback(c echo.Context) error {
 			"success": false,
 			"message": "Failed to save session!",
 		})
+	}
+
+	redirectParam, ok := sess.Values["oauth_redirect"].(string)
+	if !ok || redirectParam == "" {
+		redirectParam = c.QueryParam("r")
+	}
+
+	delete(sess.Values, "oauth_redirect")
+	if err := sess.Save(c.Request(), c.Response()); err != nil {
+		slog.Error("Failed to clear oauth_redirect from session", "error", err)
+	}
+
+	if redirectParam == "1" {
+		return c.Redirect(http.StatusFound, "/")
 	}
 
 	return c.JSON(200, map[string]any{

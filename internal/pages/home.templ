@@ -3,29 +3,55 @@ package pages
 templ Home() {
 	<html>
 		<head>
-			<meta name="description" content="Find movies!"/>
+			<title>CodeFlick</title>
+			<meta name="description" content="CodeFlick - Flick it, share it! Open-source Gists for the dev community."/>
 			<meta name="viewport" content="width=device-width, initial-scale=1"/>
 			<meta charset="utf-8"/>
 			<link rel="stylesheet" href="/public/styles.css"/>
 			<script src="/public/vendor/htmx.js" defer></script>
 		</head>
-		<body class="h-full w-full bg-black/95 text-white" hx-boost="true">
+	<div class="min-h-screen bg-gray-900 text-white">
+		<header class="container mx-auto px-4 py-8">
+				<nav class="flex justify-between items-center">
+						<div class="text-2xl font-bold">CodeFlick</div>
+						<div class="space-x-4">
+								@homeButton("About", "/about")
+								@homeButton("Login", "/api/auth/google/login?r=1")
+						</div>
+				</nav>
+		</header>
 
-			<div class="flex flex-col h-full">
-				<header class="p-4">
-					<img src="/public/codeflick-logo.png" alt="logo" class="w-8"/>
-				</header>
-
-				<main class="flex-1 p-4">
-					<h1 class="text-9xl font-bold font-mono tracking-wider">CodeFlick</h1>
-                    <p class="text-lg">Flick it, share it! Open-source Gists for the dev community.</p>
-				</main>
-
-				<div>Seems like you have come to our backend server. Let me warn you not to play around here.</div>
+		<main class="container mx-auto px-4 py-16">
+			<div class="grid md:grid-cols-3 gap-8 mb-16">
+				@featureCard("Easy Code Sharing","Create and share code snippets with the community.", "/public/code.png")
+				@featureCard("Collaborate","Collaborate with other developers on your code snippets.", "/public/users.png")
+				@featureCard("Discover","Discover new code snippets and learn from the community.", "/public/globe.png")
 			</div>
-		</body>
-		<footer class="p-4">
-			<p>&copy; 2024 @HarshPatel5940</p>
+		</main>
+
+		<div class="text-white p-20 text-center mx-auto">
+		    <p>Guys sadly i have "Skill Issues" and right now. I can't invest time on templ, alphine and
+				htmx cause its not typesafe meaning it will take a lot more time for me to learn and do
+				it in the right way so imma skip it and do the client in some framework like react :D</p>
+		</div>
+	</div>
+		<footer>
+		<div class="bg-gray-800 text-white py-8 text-center">
+			<p>&copy; 2021 CodeFlick. All rights reserved.</p>
+		</div>
 		</footer>
 	</html>
+}
+
+templ homeButton (text string, url string) {
+	<button class="bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600"><a href={templ.SafeURL(url)}>{text}</a></button>
+}
+
+
+templ featureCard (title string, description string, iconUrl string) {
+	<div class="bg-gray-800 p-6 rounded-lg">
+	<img src={iconUrl} alt="logo" class="w-8 invert"/>
+	<h3 class="text-xl font-semibold mb-2">{title}</h3>
+	<p class="text-gray-400">{description}</p>
+	</div>
 }

@@ -66,6 +66,7 @@ func SetupAPIRoutes(e *echo.Group,
 
 func SetupPageRoutes(e *echo.Group) {
 	e.GET("", func(c echo.Context) error {
+		// get the latests 4-5 gists and pass it to the home page
 
 		return pages.Render(c, http.StatusOK, pages.Home())
 	})

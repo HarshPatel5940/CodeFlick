@@ -37,7 +37,8 @@ func (fh *FileStorageHandler) UploadGist(c echo.Context) error {
 	var User models.User = c.Get("UserSessionDetails").(models.User)
 	var Gist models.Gist
 	Gist.UserID = User.ID
-	currentTime := time.Now().Unix()
+	currentTime := time.Now()
+	Gist.CreatedAt = currentTime
 	Gist.FileID = ulid.Make().String()
 
 	file, err := c.FormFile("file")
@@ -58,12 +59,12 @@ func (fh *FileStorageHandler) UploadGist(c echo.Context) error {
 
 	Gist.GistTitle = c.FormValue("gist_title")
 	if Gist.GistTitle == "" {
-		Gist.GistTitle = fmt.Sprintf("%s-%d", file.Filename, currentTime)
+		Gist.GistTitle = fmt.Sprintf("%s-%s", file.Filename, Gist.FileID)
 	}
 
 	Gist.ShortUrl = c.FormValue("custom_url")
 	if Gist.ShortUrl == "" {
-		Gist.ShortUrl = fmt.Sprintf("%s-%d", file.Filename, currentTime)
+		Gist.ShortUrl = fmt.Sprintf("%s-%s", file.Filename, Gist.FileID)
 	}
 
 	Gist.IsPublic, err = strconv.ParseBool(c.FormValue("is_public"))
@@ -125,11 +126,14 @@ func (fh *FileStorageHandler) UploadGist(c echo.Context) error {
 	}
 
 	return c.JSON(http.StatusCreated, map[string]any{
-		"success":  true,
-		"message":  "Gist uploaded successfully!",
-		"key":      fileInfo.Key,
-		"fileSize": fileInfo.Size,
-		"fileId":   Gist.FileID,
+		"success":    true,
+		"message":    "Gist uploaded successfully!",
+		"key":        fileInfo.Key,
+		"fileSize":   fileInfo.Size,
+		"file_id":    Gist.FileID,
+		"short_url":  Gist.ShortUrl,
+		"title":      Gist.GistTitle,
+		"created_at": Gist.CreatedAt,
 	})
 }
 
