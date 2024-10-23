@@ -3,9 +3,9 @@ package main
 import (
 	"context"
 	"log"
+	"net/http"
 	"time"
 
-	"net/http"
 	_ "net/http/pprof"
 
 	"github.com/HarshPatel5940/CodeFlick/internal/db"
@@ -22,21 +22,21 @@ type App struct {
 	Echo               *echo.Echo
 	DB                 *sqlx.DB
 	MinioHandler       *db.MinioHandler
-	FileStorageHandler *handlers.FileStorageHandler
+	GistStorageHandler *handlers.GistStorageHandler
 	AuthHandler        *handlers.AuthHandler
 }
 
 func NewApp(
 	db *sqlx.DB,
 	minioHandler *db.MinioHandler,
-	fileStorageHandler *handlers.FileStorageHandler,
+	GistStorageHandler *handlers.GistStorageHandler,
 	authHandler *handlers.AuthHandler,
 ) *App {
 	e := echo.New()
 	middlewares.SetupMiddlewares(e)
 
 	api := e.Group("/api")
-	routes.SetupAPIRoutes(api, fileStorageHandler, authHandler)
+	routes.SetupAPIRoutes(api, GistStorageHandler, authHandler)
 
 	e.Static("/public", "public")
 
@@ -47,7 +47,7 @@ func NewApp(
 		Echo:               e,
 		DB:                 db,
 		MinioHandler:       minioHandler,
-		FileStorageHandler: fileStorageHandler,
+		GistStorageHandler: GistStorageHandler,
 		AuthHandler:        authHandler,
 	}
 }
@@ -88,7 +88,7 @@ func main() {
 			db.NewGistDB,
 			db.NewReplyDB,
 			db.NewUserDB,
-			handlers.NewFilesHandler,
+			handlers.NewGistHandler,
 			handlers.NewAuthHandler,
 			NewApp,
 		),

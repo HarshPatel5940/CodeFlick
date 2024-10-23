@@ -72,7 +72,7 @@ func (ah *AuthHandler) GoogleOauthLogin(c echo.Context) error {
 		return c.Redirect(http.StatusFound, "/")
 	}
 
-	return c.JSON(200, map[string]any{
+	return c.JSON(http.StatusOK, map[string]any{
 		"success": true,
 		"message": "Session details fetched successfully!",
 		"data": map[string]any{
@@ -157,7 +157,7 @@ func (ah *AuthHandler) GoogleOauthCallback(c echo.Context) error {
 		return c.Redirect(http.StatusFound, "/")
 	}
 
-	return c.JSON(200, map[string]any{
+	return c.JSON(http.StatusOK, map[string]any{
 		"success": true,
 		"message": "Successfully logged in with Google!",
 	})
@@ -166,7 +166,7 @@ func (ah *AuthHandler) GoogleOauthCallback(c echo.Context) error {
 func (ah *AuthHandler) GetSessionDetails(c echo.Context) error {
 	var sess models.User = c.Get("UserSessionDetails").(models.User)
 
-	return c.JSON(200, map[string]any{
+	return c.JSON(http.StatusOK, map[string]any{
 		"success": true,
 		"message": "Session details fetched successfully!",
 		"data": map[string]any{
@@ -177,5 +177,21 @@ func (ah *AuthHandler) GetSessionDetails(c echo.Context) error {
 			"isPremium": sess.IsPremium,
 			"isDeleted": sess.IsDeleted,
 		},
+	})
+}
+
+func (ah *AuthHandler) GetAllUsers(c echo.Context) error {
+	users, err := ah.userDB.GetAllUsers(context.Background())
+	if err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, map[string]any{
+			"success": false,
+			"message": "Failed while fetching users from databases!",
+		})
+	}
+
+	return c.JSON(http.StatusOK, map[string]any{
+		"success": true,
+		"message": "All Users details fetched successfully!",
+		"data":    users,
 	})
 }

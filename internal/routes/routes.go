@@ -27,47 +27,44 @@ func root(c echo.Context) error {
 }
 
 func SetupAPIRoutes(e *echo.Group,
-	FileStorageHandler *handlers.FileStorageHandler,
+	GistStorageHandler *handlers.GistStorageHandler,
 	AuthHandler *handlers.AuthHandler,
 ) {
 	e.GET("", root)
 
-	// * ==========================
 	e.GET("/auth/:provider/login", AuthHandler.GoogleOauthLogin, middlewares.SessionMiddleware(middlewares.Config{}))
 	e.GET("/auth/:provider/callback", AuthHandler.GoogleOauthCallback, middlewares.SessionMiddleware(middlewares.Config{}))
 	e.GET("/auth/session", AuthHandler.GetSessionDetails, middlewares.SessionMiddleware(middlewares.Config{
 		RequiredAccess: middlewares.AccessLevelUser,
 	}))
 
-	// * ==========================
 	gistsRoutes := e.Group("/gists", middlewares.SessionMiddleware(middlewares.Config{
 		RequiredAccess: middlewares.AccessLevelUser,
 	}))
-	gistsRoutes.GET("", FileStorageHandler.ListGists)
-	gistsRoutes.POST("/new", FileStorageHandler.UploadGist)
-	gistsRoutes.GET("/:id", FileStorageHandler.GetGist)
-	gistsRoutes.PUT("/:id", FileStorageHandler.UpdateGist)
-	gistsRoutes.DELETE("/:id", FileStorageHandler.DeleteGist)
+	gistsRoutes.GET("", GistStorageHandler.GetAllGists)
+	gistsRoutes.POST("/new", GistStorageHandler.UploadGist)
+	gistsRoutes.GET("/:id", GistStorageHandler.GetGist)
+	gistsRoutes.PUT("/:id", GistStorageHandler.UpdateGist)
+	gistsRoutes.DELETE("/:id", GistStorageHandler.DeleteGist)
 
-	gistsRoutes.GET("/:id/reply", FileStorageHandler.GetGistReplies)
-	gistsRoutes.POST("/:id/reply", FileStorageHandler.InsertGistReply)
-	gistsRoutes.PUT("/:id/reply/:reply_id", FileStorageHandler.UpdateGistReply)
-	gistsRoutes.DELETE("/:id/reply/:reply_id", FileStorageHandler.DeleteGistReply)
+	gistsRoutes.GET("/:id/reply", GistStorageHandler.GetGistReplies)
+	gistsRoutes.POST("/:id/reply", GistStorageHandler.InsertGistReply)
+	gistsRoutes.PUT("/:id/reply/:reply_id", GistStorageHandler.UpdateGistReply)
+	gistsRoutes.DELETE("/:id/reply/:reply_id", GistStorageHandler.DeleteGistReply)
 
-	// * ========================== Admin Routes ==================
 	adminRoutes := e.Group("/admin", middlewares.SessionMiddleware(middlewares.Config{
 		RequiredAccess: middlewares.AccessLevelAdmin,
 	}))
-	adminRoutes.GET("/buckets", FileStorageHandler.ListBuckets)
-	adminRoutes.GET("/buckets/:bucket", FileStorageHandler.ListAllFiles)
-	// TODO: adminRoutes.GET("/users", FileStorageHandler.GetAllUsers)
-	// TODO: delete and update routes for users and gists
+	adminRoutes.GET("/buckets", GistStorageHandler.ListBuckets)
+	adminRoutes.GET("/buckets/:bucket", GistStorageHandler.ListAllFiles)
+	adminRoutes.GET("/users", AuthHandler.GetAllUsers)
+	// TODO: Did not test this, so do it when u get time.
+	adminRoutes.PUT("/gists/:id/reply/:reply_id", GistStorageHandler.UpdateGist)
+	adminRoutes.DELETE("/gists/:id/reply/:reply_id", GistStorageHandler.DeleteGist)
 }
 
 func SetupPageRoutes(e *echo.Group) {
 	e.GET("", func(c echo.Context) error {
-		// get the latests 4-5 gists and pass it to the home page
-
 		return pages.Render(c, http.StatusOK, pages.Home())
 	})
 }
