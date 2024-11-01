@@ -5,12 +5,12 @@ export default defineNuxtConfig({
     "@nuxt/icon",
     "@nuxt/ui",
     "@pinia/nuxt",
-    "@pinia-plugin-persistedstate/nuxt",
+    "pinia-plugin-persistedstate/nuxt",
     "@vueuse/nuxt",
     "@vueuse/motion/nuxt",
   ],
 
-  // ssr: false,
+  ssr: false,
 
   imports: {
     dirs: ["./layouts", "./components", "./pages", "./store", "./utils"],

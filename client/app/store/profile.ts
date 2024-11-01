@@ -1,3 +1,5 @@
+import { defineStore } from "pinia";
+
 export const useProfile = defineStore({
   id: "profile",
   state: () => ({
@@ -34,6 +36,6 @@ export const useProfile = defineStore({
     },
   },
   persist: {
-    storage: persistedState.localStorage,
+    storage: piniaPluginPersistedstate.cookies(),
   },
 });

@@ -32,6 +32,9 @@ importers:
       pinia:
         specifier: ^2.2.5
         version: 2.2.5(typescript@5.6.3)(vue@3.5.12(typescript@5.6.3))
+      pinia-plugin-persistedstate:
+        specifier: ^4.1.2
+        version: 4.1.2(@pinia/nuxt@0.5.5(magicast@0.3.5)(rollup@4.24.3)(typescript@5.6.3)(vue@3.5.12(typescript@5.6.3)))(magicast@0.3.5)(pinia@2.2.5(typescript@5.6.3)(vue@3.5.12(typescript@5.6.3)))(rollup@4.24.3)
     devDependencies:
       '@antfu/eslint-config':
         specifier: ^3.8.0

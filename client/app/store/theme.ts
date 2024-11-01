@@ -1,16 +1,8 @@
+import { defineStore } from "pinia";
+
 export const useTheme = defineStore({
   id: "theme",
-  state: () => {
-    console.log("skill issue", persistedState.localStorage.getItem("theme"));
-    if (persistedState.localStorage.getItem("theme")) {
-      return {
-        isDarkMode: persistedState.localStorage.getItem("theme") === "dark",
-      };
-    }
-    return {
-      isDarkMode: false,
-    };
-  },
+  state: () => ({ isDarkMode: true }),
   actions: {
     getThemeBool() {
       return this.isDarkMode;
@@ -23,5 +15,7 @@ export const useTheme = defineStore({
       return this.isDarkMode ? "dark" : "light";
     },
   },
-  persist: true,
+  persist: {
+    storage: piniaPluginPersistedstate.cookies(),
+  },
 });
