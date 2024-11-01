@@ -32,8 +32,8 @@ func SetupAPIRoutes(e *echo.Group,
 ) {
 	e.GET("", root)
 
-	e.GET("/auth/:provider/login", AuthHandler.GoogleOauthLogin, middlewares.SessionMiddleware(middlewares.Config{}))
-	e.GET("/auth/:provider/callback", AuthHandler.GoogleOauthCallback, middlewares.SessionMiddleware(middlewares.Config{}))
+	e.GET("/auth/:provider/login", AuthHandler.GoogleOauthLogin)
+	e.GET("/auth/:provider/callback", AuthHandler.GoogleOauthCallback)
 	e.GET("/auth/session", AuthHandler.GetSessionDetails, middlewares.SessionMiddleware(middlewares.Config{
 		RequiredAccess: middlewares.AccessLevelUser,
 	}))

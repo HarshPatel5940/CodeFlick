@@ -1,67 +1,61 @@
-<script setup lang="ts">
-const icons = [
-  {
-    name: 'nuxt',
-    iconName: 'logos:nuxt-icon',
-    label: 'Nuxt',
-  },
-  {
-    name: 'pinia',
-    iconName: 'logos:pinia',
-    label: 'Pinia',
-  },
-  {
-    name: 'drizzle',
-    iconName: 'simple-icons:drizzle',
-    label: 'Drizzle ORM',
-  },
-  {
-    name: 'biome',
-    iconName: 'devicon:biome',
-    label: 'Biome',
-  },
-  {
-    name: 'docker',
-    iconName: 'logos:docker-icon',
-    label: 'Docker',
-  },
-  {
-    name: 'unocss',
-    iconName: 'logos:unocss',
-    label: 'UnoCSS',
-  },
-]
+<script setup>
+const isLoggedIn = ref(false);
+const username = ref("");
+const email = ref("");
+const profile = useProfile();
+
+const checkSession = async () => {
+  const { data, error } = await useFetch('/api/session')
+  if (error.value || !data.value) {
+    console.error(error.value);
+    return;
+  }
+
+  const details = data.value.data.data;
+  console.log(details);
+  isLoggedIn.value = details.user_id !== "" ? true : false;
+  username.value = details.name;
+  email.value = details.email;
+
+  profile.set(details.user_id, details.name, details.email, details.isAdmin, details.isDeleted, details.isPremium);
+
+};
+checkSession();
+
+const redirectToLogin = async () => {
+  const { data } = await useFetch('/api/login');
+  if (data.value && data.value.status === 307) {
+    navigateTo(data.value.data.redirectURI, {external: true});
+  }
+};
+
 </script>
 
 <template>
   <section
     class="bg-inherit w-full h-full justify-center overflow-auto items-center flex flex-col"
   >
-    <div class="max-w-6xl mx-auto flex flex-col items-center">
-      <div class="flex flex-col items-center gap-4">
-        <Icon name="logos:nuxt-icon" class="text-green-500 w-16 h-16" />
-        <h1 class="dark:text-gray-100 text-gray-900 text-4xl font-bold">
-          Nuxt Starter
-        </h1>
+    <div class="max-w-6xl mx-auto flex flex-col items-center gap-3">
+      <Icon name="tabler:code" class="text-green-500 w-16 h-16" />
+      <h1 class="dark:text-gray-100 text-gray-900 text-7xl font-bold tracking-wider">
+        CodeFlick
+      </h1>
+      <div v-if="!isLoggedIn" class="dark:text-white/80 text-sm md:text-md italic">
+        To get started / login, click the button below
       </div>
-      <div
-        class="grid grid-cols-1 text-gray-900 dark:text-gray-100 md:grid-cols-3 gap-4 w-full max-w-4xl"
-      >
-        <div
-          v-for="icon in icons"
-          class="dark:bg-neutral-800/50 bg-gray-100 p-6 rounded-xl border-2 border-neutral-700/50 hover:border-green-500"
+      <div v-else class="dark:text-white/80 text-sm md:text-md italic">
+        Welcome, {{ username }}
+      </div>
+      <div>
+        <UButton
+          v-motion-slide-visible-bottom
+          icon="tabler:login"
+          class="text-md md:text-lg font-mono tracking-wide p-2 rounded-xl border-2 border-neutral-700/50 hover:border-green-500 dark:bg-neutral-800/50 dark:text-white mt-4"
+          @click="redirectToLogin()"
         >
-          <div :key="icon.name" class="flex flex-col items-center gap-3">
-            <Icon
-              :name="icon.iconName"
-              :class="icon.name === 'drizzle' ? 'text-yellow-400' : ''"
-              class="w-12 h-12 group-hover:scale-110"
-            />
-            <span class="font-medium">{{ icon.label }}</span>
-          </div>
-        </div>
+          {{ isLoggedIn ? 'Continue' : 'Login' }}
+        </UButton>
       </div>
-      <Counter />
     </div>
   </section>
 </template>

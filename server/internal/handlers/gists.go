@@ -82,7 +82,7 @@ func (fh *GistStorageHandler) UploadGist(c echo.Context) error {
 	}
 	go func() {
 		if err := src.Close(); err != nil {
-			slog.AnyValue(fmt.Errorf("Error while closing the file: %w", err))
+			slog.AnyValue(fmt.Errorf("error while closing the file: %w", err))
 		}
 	}()
 
@@ -390,7 +390,7 @@ func (fh *GistStorageHandler) UpdateGist(c echo.Context) error {
 	}
 	go func() {
 		if err := src.Close(); err != nil {
-			slog.AnyValue(fmt.Errorf("Error while closing the file: %w", err))
+			slog.AnyValue(fmt.Errorf("error while closing the file: %w", err))
 		}
 	}()
 

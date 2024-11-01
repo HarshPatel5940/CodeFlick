@@ -1,12 +1,13 @@
 // https://nuxt.com/docs/api/configuration/nuxt-config
 export default defineNuxtConfig({
   modules: [
-    "@vueuse/nuxt",
+    "@nuxt/eslint",
     "@nuxt/icon",
-    "@unocss/nuxt",
+    "@nuxt/ui",
     "@pinia/nuxt",
     "@pinia-plugin-persistedstate/nuxt",
-    "@nuxt/eslint",
+    "@vueuse/nuxt",
+    "@vueuse/motion/nuxt",
   ],
 
   // ssr: false,
@@ -16,10 +17,9 @@ export default defineNuxtConfig({
   },
 
   devtools: { enabled: true },
-  css: ["./app/app.css"],
 
   srcDir: "app",
-  serverDir: "server",
+  serverDir: "nuxt-server",
   compatibilityDate: "2024-10-24",
 
   eslint: {
@@ -29,9 +29,5 @@ export default defineNuxtConfig({
         sortConfigKeys: true,
       },
     },
-  },
-
-  unocss: {
-    nuxtLayers: true,
   },
 });

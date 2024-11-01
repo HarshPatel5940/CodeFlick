@@ -14,27 +14,21 @@
   },
   "dependencies": {
     "@iconify-json/logos": "1.2.3",
-    "@nuxt/icon": "^1.5.8",
+    "@nuxt/ui": "^2.18.7",
     "@pinia-plugin-persistedstate/nuxt": "^1.2.1",
-    "@pinia/nuxt": "^0.5.5",
-    "@unocss/core": "^0.63.6",
-    "@unocss/nuxt": "^0.63.6",
-    "@vueuse/core": "^11.1.0",
+    "@pinia/nuxt": "^0.5.0",
+    "@vueuse/motion": "^2.2.6",
     "@vueuse/nuxt": "^11.1.0",
-    "jsonwebtoken": "^9.0.2",
-    "lucide-vue-next": "^0.453.0",
     "nuxt": "^3.13.2",
-    "pinia": "^2.2.4",
-    "unocss": "^0.63.6",
-    "vue": "^3.5.12",
-    "vue-router": "^4.4.5",
-    "zod": "^3.23.8"
+    "pinia": "^2.2.5"
   },
   "devDependencies": {
     "@antfu/eslint-config": "^3.8.0",
     "@iconify-json/devicon": "^1.2.4",
+    "@iconify-json/solar": "^1.2.1",
+    "@iconify-json/tabler": "^1.2.6",
     "@nuxt/devtools": "latest",
-    "@nuxt/eslint": "^0.6.0",
+    "@nuxt/eslint": "^0.6.1",
     "eslint-plugin-format": "^0.1.2"
   }
 }
