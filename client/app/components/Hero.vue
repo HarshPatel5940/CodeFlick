@@ -28,6 +28,10 @@ async function checkSession() {
 checkSession()
 
 async function redirectToLogin() {
+  if (isLoggedIn.value) {
+    navigateTo('/dashboard')
+    return
+  }
   const { data } = await useFetch('/api/login')
   if (data.value && data.value.status === 307) {
     navigateTo(data.value.data.redirectURI, { external: true })
