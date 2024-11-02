@@ -1,4 +1,5 @@
 .zed
+.eslintcache
 
 # Nuxt dev/build outputs
 .output
