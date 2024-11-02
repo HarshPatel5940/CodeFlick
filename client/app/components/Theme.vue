@@ -1,15 +1,14 @@
 <script setup lang="ts">
-
-const colorMode = useColorMode();
-const theme = useTheme();
+const colorMode = useColorMode()
+const theme = useTheme()
 
 function toggleColorMode() {
-  colorMode.value = theme.toggleTheme();
+  colorMode.value = theme.toggleTheme()
 }
 
 onMounted(() => {
-  colorMode.value = theme.getTheme();
-});
+  colorMode.value = theme.getTheme()
+})
 </script>
 
 <template>
