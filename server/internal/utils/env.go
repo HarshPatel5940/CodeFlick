@@ -8,9 +8,10 @@ import (
 	"github.com/joho/godotenv"
 )
 
-var env = map[string]any{
+var env = map[string]interface{}{
 	"PORT":                    "8080",
 	"ENV":                     "development",
+	"CLIENT_URL":              "http://localhost:3000/",
 	"DATABASE_URL":            nil,
 	"GOOGLE_CLIENT_ID":        nil,
 	"GOOGLE_CLIENT_SECRET":    nil,
@@ -32,6 +33,10 @@ func GetEnv(key string, fallback ...string) string {
 			return fallback[0]
 		}
 
+		if env[key] != nil {
+			return fmt.Sprintf("%v", env[key])
+		}
+
 		log.Panicf("Environment variable %s not set", key)
 	}
 
@@ -42,11 +47,12 @@ func GetServerAddress() string {
 	port := GetEnv("PORT", "8080")
 	env := GetEnv("ENV", "development")
 
-	if env != "production" && env != "prod" && env != "staging" && env != "docker" {
+	switch env {
+	case "production", "prod", "staging", "docker":
+		return fmt.Sprintf(":%s", port)
+	default:
 		return fmt.Sprintf("localhost:%s", port)
 	}
-
-	return fmt.Sprintf(":%s", port)
 }
 
 func LoadEnv() {

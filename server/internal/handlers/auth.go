@@ -21,6 +21,7 @@ import (
 type AuthHandler struct {
 	userDB     *db.UserDB
 	sessionAge int
+	clientURL  string
 }
 
 func NewAuthHandler(userDB *db.UserDB) *AuthHandler {
@@ -32,7 +33,9 @@ func NewAuthHandler(userDB *db.UserDB) *AuthHandler {
 		sessionAge = 604800
 	}
 
-	return &AuthHandler{userDB: userDB, sessionAge: sessionAge}
+	clientURL := utils.GetEnv("CLIENT_URL")
+
+	return &AuthHandler{userDB: userDB, sessionAge: sessionAge, clientURL: clientURL}
 }
 
 func InitialiseAuth() {
@@ -56,8 +59,6 @@ func (ah *AuthHandler) GoogleOauthLogin(c echo.Context) error {
 	redirectParam := c.QueryParam("r")
 
 	if err != nil || sess.Values["user_id"] == nil || sess.Values["user_id"] == "" {
-		ctx := context.WithValue(c.Request().Context(), "provider", "google")
-
 		if redirectParam != "" {
 			sess.Values["oauth_redirect"] = redirectParam
 			if err := sess.Save(c.Request(), c.Response()); err != nil {
@@ -65,16 +66,24 @@ func (ah *AuthHandler) GoogleOauthLogin(c echo.Context) error {
 			}
 		}
 
-		gothic.BeginAuthHandler(c.Response(), c.Request().WithContext(ctx))
+		// ignore the below linting warning... i am having skill issue while fixing that :(
+		ctx := context.WithValue(c.Request().Context(), "provider", "google")
+		c.SetRequest(c.Request().WithContext(ctx))
+
+		gothic.BeginAuthHandler(c.Response(), c.Request())
 	}
 
-	if redirectParam != "" {
+	if redirectParam == "self" {
 		return c.Redirect(http.StatusFound, "/")
+	}
+
+	if redirectParam == "client" {
+		return c.Redirect(http.StatusFound, ah.clientURL)
 	}
 
 	return c.JSON(http.StatusOK, map[string]any{
 		"success": true,
-		"message": "Session details fetched successfully!",
+		"message": "Session details fetched successfully! without callback",
 		"data": map[string]any{
 			"user_id":   sess.Values["user_id"],
 			"name":      sess.Values["name"],
@@ -89,7 +98,7 @@ func (ah *AuthHandler) GoogleOauthLogin(c echo.Context) error {
 func (ah *AuthHandler) GoogleOauthCallback(c echo.Context) error {
 	GothUser, err := gothic.CompleteUserAuth(c.Response(), c.Request())
 	if err != nil {
-		return err
+		return echo.NewHTTPError(http.StatusInternalServerError, "Failed to complete user authentication")
 	}
 
 	sess, err := session.Get("session", c)
@@ -153,8 +162,12 @@ func (ah *AuthHandler) GoogleOauthCallback(c echo.Context) error {
 		slog.Error("Failed to clear oauth_redirect from session", "error", err)
 	}
 
-	if redirectParam == "1" {
+	if redirectParam == "self" {
 		return c.Redirect(http.StatusFound, "/")
+	}
+
+	if redirectParam == "client" {
+		return c.Redirect(http.StatusFound, ah.clientURL)
 	}
 
 	return c.JSON(http.StatusOK, map[string]any{

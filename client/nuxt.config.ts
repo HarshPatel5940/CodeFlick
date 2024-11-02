@@ -1,26 +1,26 @@
 // https://nuxt.com/docs/api/configuration/nuxt-config
 export default defineNuxtConfig({
   modules: [
-    "@vueuse/nuxt",
-    "@nuxt/icon",
-    "@unocss/nuxt",
-    "@pinia/nuxt",
-    "@pinia-plugin-persistedstate/nuxt",
-    "@nuxt/eslint",
+    '@nuxt/eslint',
+    '@nuxt/icon',
+    '@nuxt/ui',
+    '@pinia/nuxt',
+    'pinia-plugin-persistedstate/nuxt',
+    '@vueuse/nuxt',
+    '@vueuse/motion/nuxt',
   ],
 
-  // ssr: false,
+  ssr: false,
 
   imports: {
-    dirs: ["./layouts", "./components", "./pages", "./store", "./utils"],
+    dirs: ['./layouts', './components', './pages', './store', './utils'],
   },
 
   devtools: { enabled: true },
-  css: ["./app/app.css"],
 
-  srcDir: "app",
-  serverDir: "server",
-  compatibilityDate: "2024-10-24",
+  srcDir: 'app',
+  serverDir: 'nuxt-server',
+  compatibilityDate: '2024-10-24',
 
   eslint: {
     config: {
@@ -30,8 +30,4 @@ export default defineNuxtConfig({
       },
     },
   },
-
-  unocss: {
-    nuxtLayers: true,
-  },
-});
+})
