@@ -194,7 +194,7 @@ func (fh *GistStorageHandler) GetGist(c echo.Context) error {
 	if GistUrl == "" {
 		return echo.NewHTTPError(http.StatusNotFound, map[string]any{
 			"success": false,
-			"message": "Gist ID is required! Not Found!",
+			"message": "Gist URL is required",
 		})
 	}
 
@@ -202,62 +202,41 @@ func (fh *GistStorageHandler) GetGist(c echo.Context) error {
 	if err != nil {
 		return echo.NewHTTPError(http.StatusNotFound, map[string]any{
 			"success": false,
-			"message": "Gist not found!",
-			"details": err.Error(),
+			"message": "Gist not found",
 		})
 	}
 
 	if Gist.IsDeleted {
 		return echo.NewHTTPError(http.StatusNotFound, map[string]any{
 			"success": false,
-			"message": "Gist not found!",
+			"message": "Gist has been deleted",
 		})
 	}
 
-	if !Gist.IsPublic {
-		if Gist.FileID != GistID {
-			return echo.NewHTTPError(http.StatusUnauthorized, map[string]any{
-				"success": false,
-				"message": "You are not authorized to get this gist!",
-			})
-		}
+	if !Gist.IsPublic && Gist.FileID != GistID {
+		return echo.NewHTTPError(http.StatusUnauthorized, map[string]any{
+			"success": false,
+			"message": "Unauthorized access to private gist",
+		})
 	}
-	fileName := fmt.Sprintf("%s/%s", Gist.UserID, Gist.FileID)
 
+	fileName := fmt.Sprintf("%s/%s", Gist.UserID, Gist.FileID)
 	gistData, err := fh.minio.GetObject(context.Background(), fileName, minio.GetObjectOptions{})
 	if err != nil {
-		resp := minio.ToErrorResponse(err)
-
-		if resp.Code != "" {
-			return echo.NewHTTPError(http.StatusInternalServerError, map[string]any{
-				"success": false,
-				"Message": resp.Message,
-				"Details": resp,
-			})
-		}
-		return echo.NewHTTPError(http.StatusInternalServerError, map[string]any{
-			"success": false,
-			"Message": err.Error(),
-		})
+		return handleMinioError(err)
 	}
+	go func() {
+		if err := gistData.Close(); err != nil {
+			slog.AnyValue(fmt.Errorf("error while closing the file: %w", err))
+		}
+	}()
 
 	gistStat, err := gistData.Stat()
 	if err != nil {
-		resp := minio.ToErrorResponse(err)
-		if resp.Code != "" {
-			return echo.NewHTTPError(http.StatusInternalServerError, map[string]any{
-				"success": false,
-				"Message": resp.Message,
-				"Details": resp,
-			})
-		}
-		return echo.NewHTTPError(http.StatusInternalServerError, map[string]any{
-			"success": false,
-			"Message": err.Error(),
-		})
+		return handleMinioError(err)
 	}
 
-	metadataJSON, err := json.Marshal(map[string]interface{}{
+	metadata := map[string]interface{}{
 		"UserID":     Gist.UserID,
 		"ForkedFrom": Gist.ForkedFrom,
 		"GistTitle":  Gist.GistTitle,
@@ -266,12 +245,13 @@ func (fh *GistStorageHandler) GetGist(c echo.Context) error {
 		"IsPublic":   Gist.IsPublic,
 		"CreatedAt":  Gist.CreatedAt,
 		"UpdatedAt":  Gist.UpdatedAt,
-	})
+	}
+
+	metadataJSON, err := json.Marshal(metadata)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, map[string]any{
 			"success": false,
-			"message": "Failed to marshal metadata",
-			"details": err.Error(),
+			"message": "Failed to process metadata",
 		})
 	}
 
@@ -280,13 +260,11 @@ func (fh *GistStorageHandler) GetGist(c echo.Context) error {
 	c.Response().Header().Set("X-Metadata", string(metadataJSON))
 	c.Response().Header().Set("Content-Length", strconv.FormatInt(gistStat.Size, 10))
 
-	var buffer bytes.Buffer
-
-	if _, err := io.Copy(&buffer, gistData); err != nil {
+	buffer := &bytes.Buffer{}
+	if _, err := io.Copy(buffer, gistData); err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, map[string]any{
 			"success": false,
-			"message": "Failed to write file content",
-			"details": err.Error(),
+			"message": "Failed to read file content",
 		})
 	}
 
@@ -673,4 +651,18 @@ func (fh *GistStorageHandler) DeleteGistReply(c echo.Context) error {
 
 func (fh *GistStorageHandler) ListAllFiles(c echo.Context) error {
 	return nil
+}
+
+func handleMinioError(err error) error {
+	if resp := minio.ToErrorResponse(err); resp.Code != "" {
+		return echo.NewHTTPError(http.StatusInternalServerError, map[string]any{
+			"success": false,
+			"message": resp.Message,
+			"code":    resp.Code,
+		})
+	}
+	return echo.NewHTTPError(http.StatusInternalServerError, map[string]any{
+		"success": false,
+		"message": "Storage error occurred",
+	})
 }
