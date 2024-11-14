@@ -19,43 +19,56 @@ const (
 
 type GistDB struct {
 	db *sqlx.DB
+	cm *ConnectionManager
 }
 
-func NewGistDB(db *sqlx.DB) *GistDB {
-	return &GistDB{db: db}
+func NewGistDB(db *sqlx.DB, cm *ConnectionManager) *GistDB {
+	return &GistDB{db: db, cm: cm}
 }
 
 func (g *GistDB) GetGistByID(ctx context.Context, gistID string) (models.Gist, error) {
 	var gist models.Gist
-	err := g.db.GetContext(ctx, &gist, getGistByID, gistID)
+	err := g.cm.RetryWithSingleFlight(ctx, func() error {
+		return g.db.GetContext(ctx, &gist, getGistByID, gistID)
+	})
 	return gist, err
 }
 
 func (g *GistDB) GetGistByShortURL(ctx context.Context, shortURL string) (models.Gist, error) {
 	var gist models.Gist
-	err := g.db.GetContext(ctx, &gist, getGistByShortURL, shortURL)
+	err := g.cm.RetryWithSingleFlight(ctx, func() error {
+		return g.db.GetContext(ctx, &gist, getGistByShortURL, shortURL)
+	})
 	return gist, err
 }
 
 func (g *GistDB) GetGistsByUserID(ctx context.Context, userID string) ([]models.Gist, error) {
 	var gists []models.Gist
-	err := g.db.SelectContext(ctx, &gists, getGistsByUserID, userID)
+	err := g.cm.RetryWithSingleFlight(ctx, func() error {
+		return g.db.SelectContext(ctx, &gists, getGistsByUserID, userID)
+	})
 	return gists, err
 }
 
 func (g *GistDB) InsertGist(ctx context.Context, gist models.Gist) error {
-	_, err := g.db.ExecContext(ctx, insertGist, gist.UserID, gist.FileID, gist.GistTitle, gist.ShortUrl, gist.IsPublic)
-	return err
+	return g.cm.RetryWithSingleFlight(ctx, func() error {
+		_, err := g.db.ExecContext(ctx, insertGist, gist.UserID, gist.FileID, gist.GistTitle, gist.ShortUrl, gist.IsPublic)
+		return err
+	})
 }
 
 func (g *GistDB) UpdateGist(ctx context.Context, gist models.Gist) (string, error) {
 	var fileID string
-	err := g.db.GetContext(ctx, &fileID, updateGist, gist.FileID, gist.UserID, gist.GistTitle, gist.ShortUrl, gist.IsPublic, time.Now())
+	err := g.cm.RetryWithSingleFlight(ctx, func() error {
+		return g.db.GetContext(ctx, &fileID, updateGist, gist.FileID, gist.UserID, gist.GistTitle, gist.ShortUrl, gist.IsPublic, time.Now())
+	})
 	return fileID, err
 }
 
 func (g *GistDB) DeleteGist(ctx context.Context, gistID, userID string) (string, error) {
 	var fileID string
-	err := g.db.GetContext(ctx, &fileID, deleteGist, gistID, userID, time.Now())
+	err := g.cm.RetryWithSingleFlight(ctx, func() error {
+		return g.db.GetContext(ctx, &fileID, deleteGist, gistID, userID, time.Now())
+	})
 	return fileID, err
 }

@@ -40,7 +40,6 @@ func main() {
 
 	command := args[0]
 	dbString := os.Getenv("DATABASE_URL")
-	log.Println(dbString)
 
 	if dbString == "" {
 		fmt.Println("goose: missing DATABASE_URL environment variable")

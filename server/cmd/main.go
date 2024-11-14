@@ -19,24 +19,24 @@ import (
 )
 
 type App struct {
-	Echo               *echo.Echo
-	DB                 *sqlx.DB
-	MinioHandler       *db.MinioHandler
-	GistStorageHandler *handlers.GistStorageHandler
-	AuthHandler        *handlers.AuthHandler
+	Echo         *echo.Echo
+	DB           *sqlx.DB
+	MinioHandler *db.MinioHandler
+	GistHandler  *handlers.GistHandler
+	AuthHandler  *handlers.AuthHandler
 }
 
 func NewApp(
 	db *sqlx.DB,
 	minioHandler *db.MinioHandler,
-	GistStorageHandler *handlers.GistStorageHandler,
+	GistHandler *handlers.GistHandler,
 	authHandler *handlers.AuthHandler,
 ) *App {
 	e := echo.New()
 	middlewares.SetupMiddlewares(e)
 
 	api := e.Group("/api")
-	routes.SetupAPIRoutes(api, GistStorageHandler, authHandler)
+	routes.SetupAPIRoutes(api, GistHandler, authHandler)
 
 	e.Static("/public", "public")
 
@@ -44,11 +44,11 @@ func NewApp(
 	routes.SetupPageRoutes(pages)
 
 	return &App{
-		Echo:               e,
-		DB:                 db,
-		MinioHandler:       minioHandler,
-		GistStorageHandler: GistStorageHandler,
-		AuthHandler:        authHandler,
+		Echo:         e,
+		DB:           db,
+		MinioHandler: minioHandler,
+		GistHandler:  GistHandler,
+		AuthHandler:  authHandler,
 	}
 }
 
@@ -83,6 +83,7 @@ func main() {
 	utils.LoadEnv()
 	fx.New(
 		fx.Provide(
+			db.NewConnectionManager,
 			db.CreatePostgresConnection,
 			db.CreateMinioClient,
 			db.NewGistDB,

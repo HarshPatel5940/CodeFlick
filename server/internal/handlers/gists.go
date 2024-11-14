@@ -14,26 +14,23 @@ import (
 
 	"github.com/HarshPatel5940/CodeFlick/internal/db"
 	"github.com/HarshPatel5940/CodeFlick/internal/models"
-	"github.com/HarshPatel5940/CodeFlick/internal/utils"
 	"github.com/labstack/echo/v4"
 	"github.com/minio/minio-go/v7"
 	"github.com/oklog/ulid/v2"
 )
 
-var MinioBucketName string = utils.GetEnv("MINIO_BUCKET_NAME", "codeflick")
-
-type GistStorageHandler struct {
+type GistHandler struct {
 	gistDB  *db.GistDB
 	replyDB *db.ReplyDB
 	userDB  *db.UserDB
 	minio   *db.MinioHandler
 }
 
-func NewGistHandler(gistDB *db.GistDB, replyDB *db.ReplyDB, userDB *db.UserDB, minio *db.MinioHandler) *GistStorageHandler {
-	return &GistStorageHandler{gistDB, replyDB, userDB, minio}
+func NewGistHandler(gistDB *db.GistDB, replyDB *db.ReplyDB, userDB *db.UserDB, minio *db.MinioHandler) *GistHandler {
+	return &GistHandler{gistDB, replyDB, userDB, minio}
 }
 
-func (fh *GistStorageHandler) UploadGist(c echo.Context) error {
+func (gh *GistHandler) UploadGist(c echo.Context) error {
 	var User models.User = c.Get("UserSessionDetails").(models.User)
 	var Gist models.Gist
 	Gist.UserID = User.ID
@@ -88,7 +85,7 @@ func (fh *GistStorageHandler) UploadGist(c echo.Context) error {
 
 	fileName := fmt.Sprintf("%s/%s", Gist.UserID, Gist.FileID)
 
-	fileInfo, err := fh.minio.PutObject(context.Background(),
+	fileInfo, err := gh.minio.PutObject(context.Background(),
 		fileName,
 		src,
 		file.Size,
@@ -101,10 +98,10 @@ func (fh *GistStorageHandler) UploadGist(c echo.Context) error {
 		})
 	}
 
-	err = fh.gistDB.InsertGist(context.Background(), Gist)
+	err = gh.gistDB.InsertGist(context.Background(), Gist)
 	if err != nil {
 		if strings.Contains(err.Error(), "duplicate key value violates unique constraint") {
-			if err := fh.minio.RemoveObject(context.Background(), fileName, minio.RemoveObjectOptions{}); err != nil {
+			if err := gh.minio.RemoveObject(context.Background(), fileName, minio.RemoveObjectOptions{}); err != nil {
 				return echo.NewHTTPError(http.StatusInternalServerError, map[string]any{
 					"success": false,
 					"message": "Failed to remove the file from minio!",
@@ -137,7 +134,7 @@ func (fh *GistStorageHandler) UploadGist(c echo.Context) error {
 	})
 }
 
-func (fh *GistStorageHandler) ListBuckets(c echo.Context) error {
+func (gh *GistHandler) ListBuckets(c echo.Context) error {
 	var User models.User = c.Get("UserSessionDetails").(models.User)
 	if !User.IsAdmin {
 		return echo.NewHTTPError(http.StatusUnauthorized, map[string]any{
@@ -146,7 +143,7 @@ func (fh *GistStorageHandler) ListBuckets(c echo.Context) error {
 		})
 	}
 
-	list, err := fh.minio.ListBuckets(context.Background())
+	list, err := gh.minio.ListBuckets(context.Background())
 	if err != nil {
 		resp := minio.ToErrorResponse(err)
 
@@ -169,10 +166,10 @@ func (fh *GistStorageHandler) ListBuckets(c echo.Context) error {
 	})
 }
 
-func (fh *GistStorageHandler) GetAllGists(c echo.Context) error {
+func (gh *GistHandler) GetAllGists(c echo.Context) error {
 	var User models.User = c.Get("UserSessionDetails").(models.User)
 
-	gists, err := fh.gistDB.GetGistsByUserID(context.Background(), User.ID)
+	gists, err := gh.gistDB.GetGistsByUserID(context.Background(), User.ID)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, map[string]any{
 			"success": false,
@@ -188,7 +185,7 @@ func (fh *GistStorageHandler) GetAllGists(c echo.Context) error {
 	})
 }
 
-func (fh *GistStorageHandler) GetGist(c echo.Context) error {
+func (gh *GistHandler) GetGist(c echo.Context) error {
 	GistUrl := c.Param("id")
 	GistID := c.QueryParam("gid")
 	if GistUrl == "" {
@@ -198,7 +195,7 @@ func (fh *GistStorageHandler) GetGist(c echo.Context) error {
 		})
 	}
 
-	Gist, err := fh.gistDB.GetGistByShortURL(context.Background(), GistUrl)
+	Gist, err := gh.gistDB.GetGistByShortURL(context.Background(), GistUrl)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusNotFound, map[string]any{
 			"success": false,
@@ -221,7 +218,7 @@ func (fh *GistStorageHandler) GetGist(c echo.Context) error {
 	}
 
 	fileName := fmt.Sprintf("%s/%s", Gist.UserID, Gist.FileID)
-	gistData, err := fh.minio.GetObject(context.Background(), fileName, minio.GetObjectOptions{})
+	gistData, err := gh.minio.GetObject(context.Background(), fileName, minio.GetObjectOptions{})
 	if err != nil {
 		return handleMinioError(err)
 	}
@@ -271,7 +268,7 @@ func (fh *GistStorageHandler) GetGist(c echo.Context) error {
 	return c.Blob(http.StatusOK, "application/octet-stream", buffer.Bytes())
 }
 
-func (fh *GistStorageHandler) UpdateGist(c echo.Context) error {
+func (gh *GistHandler) UpdateGist(c echo.Context) error {
 	currentTime := time.Now()
 	var User models.User = c.Get("UserSessionDetails").(models.User)
 	GistID := c.Param("id")
@@ -283,7 +280,7 @@ func (fh *GistStorageHandler) UpdateGist(c echo.Context) error {
 		})
 	}
 
-	Gist, err := fh.gistDB.GetGistByID(context.Background(), GistID)
+	Gist, err := gh.gistDB.GetGistByID(context.Background(), GistID)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusNotFound, map[string]any{
 			"success": false,
@@ -319,7 +316,7 @@ func (fh *GistStorageHandler) UpdateGist(c echo.Context) error {
 	Gist.IsPublic = IsPublic
 	Gist.UpdatedAt = currentTime
 
-	returnGistId, err := fh.gistDB.UpdateGist(context.Background(), Gist)
+	returnGistId, err := gh.gistDB.UpdateGist(context.Background(), Gist)
 	if err != nil {
 		if strings.Contains(err.Error(), "duplicate key value violates unique constraint") {
 			return echo.NewHTTPError(http.StatusConflict, map[string]any{
@@ -374,7 +371,7 @@ func (fh *GistStorageHandler) UpdateGist(c echo.Context) error {
 
 	fileName := fmt.Sprintf("%s/%s", Gist.UserID, Gist.FileID)
 
-	_, err = fh.minio.PutObject(context.Background(),
+	_, err = gh.minio.PutObject(context.Background(),
 		fileName,
 		src,
 		file.Size,
@@ -394,7 +391,7 @@ func (fh *GistStorageHandler) UpdateGist(c echo.Context) error {
 	})
 }
 
-func (fh *GistStorageHandler) DeleteGist(c echo.Context) error {
+func (gh *GistHandler) DeleteGist(c echo.Context) error {
 	var User models.User = c.Get("UserSessionDetails").(models.User)
 	GistId := c.Param("id")
 
@@ -405,7 +402,7 @@ func (fh *GistStorageHandler) DeleteGist(c echo.Context) error {
 		})
 	}
 
-	returnGistId, err := fh.gistDB.DeleteGist(context.Background(), GistId, User.ID)
+	returnGistId, err := gh.gistDB.DeleteGist(context.Background(), GistId, User.ID)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, map[string]any{
 			"success": false,
@@ -421,7 +418,7 @@ func (fh *GistStorageHandler) DeleteGist(c echo.Context) error {
 	})
 }
 
-func (fh *GistStorageHandler) GetGistReplies(c echo.Context) error {
+func (gh *GistHandler) GetGistReplies(c echo.Context) error {
 	GistID := c.Param("id")
 
 	slog.Debug("Fetching Gist Replies")
@@ -433,7 +430,7 @@ func (fh *GistStorageHandler) GetGistReplies(c echo.Context) error {
 		})
 	}
 
-	Gist, err := fh.gistDB.GetGistByID(context.Background(), GistID)
+	Gist, err := gh.gistDB.GetGistByID(context.Background(), GistID)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusNotFound, map[string]any{
 			"success": false,
@@ -449,7 +446,7 @@ func (fh *GistStorageHandler) GetGistReplies(c echo.Context) error {
 		})
 	}
 
-	replies, err := fh.replyDB.GetRepliesByGistID(context.Background(), GistID)
+	replies, err := gh.replyDB.GetRepliesByGistID(context.Background(), GistID)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, map[string]any{
 			"success": false,
@@ -465,7 +462,7 @@ func (fh *GistStorageHandler) GetGistReplies(c echo.Context) error {
 	})
 }
 
-func (fh *GistStorageHandler) InsertGistReply(c echo.Context) error {
+func (gh *GistHandler) InsertGistReply(c echo.Context) error {
 	currentTime := time.Now().UTC()
 	GistID := c.Param("id")
 	var User models.User = c.Get("UserSessionDetails").(models.User)
@@ -485,7 +482,7 @@ func (fh *GistStorageHandler) InsertGistReply(c echo.Context) error {
 		})
 	}
 
-	_, err := fh.gistDB.GetGistByID(context.Background(), GistID)
+	_, err := gh.gistDB.GetGistByID(context.Background(), GistID)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusNotFound, map[string]any{
 			"success": false,
@@ -494,7 +491,7 @@ func (fh *GistStorageHandler) InsertGistReply(c echo.Context) error {
 		})
 	}
 
-	err = fh.replyDB.InsertReply(context.Background(), reply)
+	err = gh.replyDB.InsertReply(context.Background(), reply)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, map[string]any{
 			"success": false,
@@ -510,7 +507,7 @@ func (fh *GistStorageHandler) InsertGistReply(c echo.Context) error {
 	})
 }
 
-func (fh *GistStorageHandler) UpdateGistReply(c echo.Context) error {
+func (gh *GistHandler) UpdateGistReply(c echo.Context) error {
 	gistID := c.Param("id")
 	replyID := c.Param("reply_id")
 	currentTime := time.Now().UTC()
@@ -539,7 +536,7 @@ func (fh *GistStorageHandler) UpdateGistReply(c echo.Context) error {
 		})
 	}
 
-	existingReply, err := fh.replyDB.GetReplyByID(context.Background(), replyID, gistID)
+	existingReply, err := gh.replyDB.GetReplyByID(context.Background(), replyID, gistID)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusNotFound, map[string]any{
 			"success": false,
@@ -569,7 +566,7 @@ func (fh *GistStorageHandler) UpdateGistReply(c echo.Context) error {
 		})
 	}
 
-	err = fh.replyDB.UpdateReply(context.Background(), reply)
+	err = gh.replyDB.UpdateReply(context.Background(), reply)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, map[string]any{
 			"success": false,
@@ -585,7 +582,7 @@ func (fh *GistStorageHandler) UpdateGistReply(c echo.Context) error {
 	})
 }
 
-func (fh *GistStorageHandler) DeleteGistReply(c echo.Context) error {
+func (gh *GistHandler) DeleteGistReply(c echo.Context) error {
 	gistID := c.Param("id")
 	replyID := c.Param("reply_id")
 	var User models.User = c.Get("UserSessionDetails").(models.User)
@@ -604,7 +601,7 @@ func (fh *GistStorageHandler) DeleteGistReply(c echo.Context) error {
 		})
 	}
 
-	reply, err := fh.replyDB.GetReplyByID(context.Background(), replyID, gistID)
+	reply, err := gh.replyDB.GetReplyByID(context.Background(), replyID, gistID)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusNotFound, map[string]any{
 			"success": false,
@@ -634,7 +631,7 @@ func (fh *GistStorageHandler) DeleteGistReply(c echo.Context) error {
 		})
 	}
 
-	err = fh.replyDB.DeleteReply(context.Background(), replyID, User.ID, gistID)
+	err = gh.replyDB.DeleteReply(context.Background(), replyID, User.ID, gistID)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, map[string]any{
 			"success": false,
@@ -649,8 +646,43 @@ func (fh *GistStorageHandler) DeleteGistReply(c echo.Context) error {
 	})
 }
 
-func (fh *GistStorageHandler) ListAllFiles(c echo.Context) error {
-	return nil
+func (gh *GistHandler) ListAllFiles(c echo.Context) error {
+	gistID := c.Param("id")
+	if gistID == "" {
+		return echo.NewHTTPError(http.StatusBadRequest, map[string]any{
+			"success": false,
+			"message": "Gist ID is required!",
+		})
+	}
+
+	name := gh.minio.GetBucketName()
+
+	var fileObjects []minio.ObjectInfo
+	for object := range gh.minio.ListObjects(context.Background(), name, true) {
+		if object.Err != nil {
+			return echo.NewHTTPError(http.StatusInternalServerError, map[string]any{
+				"success": false,
+				"message": "Error listing objects",
+				"details": object.Err.Error(),
+			})
+		}
+		fileObjects = append(fileObjects, object)
+	}
+
+	if len(fileObjects) == 0 {
+		return echo.NewHTTPError(http.StatusNotFound, map[string]any{
+			"success": false,
+			"message": "No files found!",
+		})
+	}
+
+	files := fileObjects
+
+	return c.JSON(http.StatusOK, map[string]any{
+		"success": true,
+		"message": "Listed files successfully!",
+		"data":    files,
+	})
 }
 
 func handleMinioError(err error) error {

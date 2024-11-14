@@ -5,7 +5,7 @@ import (
 	"time"
 
 	"github.com/HarshPatel5940/CodeFlick/internal/handlers"
-	"github.com/HarshPatel5940/CodeFlick/internal/middlewares"
+	m "github.com/HarshPatel5940/CodeFlick/internal/middlewares"
 	"github.com/HarshPatel5940/CodeFlick/internal/pages"
 	"github.com/labstack/echo/v4"
 )
@@ -27,40 +27,40 @@ func root(c echo.Context) error {
 }
 
 func SetupAPIRoutes(e *echo.Group,
-	GistStorageHandler *handlers.GistStorageHandler,
-	AuthHandler *handlers.AuthHandler,
+	gh *handlers.GistHandler,
+	ah *handlers.AuthHandler,
 ) {
 	e.GET("", root)
 
-	e.GET("/auth/:provider/login", AuthHandler.GoogleOauthLogin)
-	e.GET("/auth/:provider/callback", AuthHandler.GoogleOauthCallback)
-	e.GET("/auth/session", AuthHandler.GetSessionDetails, middlewares.SessionMiddleware(middlewares.Config{
-		RequiredAccess: middlewares.AccessLevelUser,
+	e.GET("/auth/:provider/login", ah.GoogleOauthLogin)
+	e.GET("/auth/:provider/callback", ah.GoogleOauthCallback)
+	e.GET("/auth/session", ah.GetSessionDetails, m.SessionMiddleware(m.Config{
+		RequiredAccess: m.AccessLevelUser,
 	}))
 
-	gistsRoutes := e.Group("/gists", middlewares.SessionMiddleware(middlewares.Config{
-		RequiredAccess: middlewares.AccessLevelUser,
+	gistsRoutes := e.Group("/gists", m.SessionMiddleware(m.Config{
+		RequiredAccess: m.AccessLevelUser,
 	}))
-	gistsRoutes.GET("", GistStorageHandler.GetAllGists)
-	gistsRoutes.POST("/new", GistStorageHandler.UploadGist)
-	gistsRoutes.GET("/:id", GistStorageHandler.GetGist)
-	gistsRoutes.PUT("/:id", GistStorageHandler.UpdateGist)
-	gistsRoutes.DELETE("/:id", GistStorageHandler.DeleteGist)
+	gistsRoutes.GET("", gh.GetAllGists)
+	gistsRoutes.POST("/new", gh.UploadGist)
+	gistsRoutes.GET("/:id", gh.GetGist)
+	gistsRoutes.PUT("/:id", gh.UpdateGist)
+	gistsRoutes.DELETE("/:id", gh.DeleteGist)
 
-	gistsRoutes.GET("/:id/reply", GistStorageHandler.GetGistReplies)
-	gistsRoutes.POST("/:id/reply", GistStorageHandler.InsertGistReply)
-	gistsRoutes.PUT("/:id/reply/:reply_id", GistStorageHandler.UpdateGistReply)
-	gistsRoutes.DELETE("/:id/reply/:reply_id", GistStorageHandler.DeleteGistReply)
+	gistsRoutes.GET("/:id/reply", gh.GetGistReplies)
+	gistsRoutes.POST("/:id/reply", gh.InsertGistReply)
+	gistsRoutes.PUT("/:id/reply/:reply_id", gh.UpdateGistReply)
+	gistsRoutes.DELETE("/:id/reply/:reply_id", gh.DeleteGistReply)
 
-	adminRoutes := e.Group("/admin", middlewares.SessionMiddleware(middlewares.Config{
-		RequiredAccess: middlewares.AccessLevelAdmin,
+	adminRoutes := e.Group("/admin", m.SessionMiddleware(m.Config{
+		RequiredAccess: m.AccessLevelAdmin,
 	}))
-	adminRoutes.GET("/buckets", GistStorageHandler.ListBuckets)
-	adminRoutes.GET("/buckets/:bucket", GistStorageHandler.ListAllFiles)
-	adminRoutes.GET("/users", AuthHandler.GetAllUsers)
+	adminRoutes.GET("/buckets", gh.ListBuckets)
+	adminRoutes.GET("/buckets/:bucket", gh.ListAllFiles)
+	adminRoutes.GET("/users", ah.GetAllUsers)
 	// TODO: Did not test this, so do it when u get time.
-	adminRoutes.PUT("/gists/:id/reply/:reply_id", GistStorageHandler.UpdateGist)
-	adminRoutes.DELETE("/gists/:id/reply/:reply_id", GistStorageHandler.DeleteGist)
+	adminRoutes.PUT("/gists/:id/reply/:reply_id", gh.UpdateGist)
+	adminRoutes.DELETE("/gists/:id/reply/:reply_id", gh.DeleteGist)
 }
 
 func SetupPageRoutes(e *echo.Group) {

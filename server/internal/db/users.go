@@ -17,31 +17,40 @@ const (
 
 type UserDB struct {
 	db *sqlx.DB
+	cm *ConnectionManager
 }
 
-func NewUserDB(db *sqlx.DB) *UserDB {
-	return &UserDB{db: db}
+func NewUserDB(db *sqlx.DB, cm *ConnectionManager) *UserDB {
+	return &UserDB{db: db, cm: cm}
 }
 
 func (u *UserDB) GetUserByID(ctx context.Context, userID string) (models.User, error) {
 	var user models.User
-	err := u.db.GetContext(ctx, &user, getUserByID, userID)
+	err := u.cm.RetryWithSingleFlight(ctx, func() error {
+		return u.db.GetContext(ctx, &user, getUserByID, userID)
+	})
 	return user, err
 }
 
 func (u *UserDB) GetUserByEmail(ctx context.Context, email string) (models.User, error) {
 	var user models.User
-	err := u.db.GetContext(ctx, &user, getUserByEmail, email)
+	err := u.cm.RetryWithSingleFlight(ctx, func() error {
+		return u.db.GetContext(ctx, &user, getUserByEmail, email)
+	})
 	return user, err
 }
 
 func (u *UserDB) InsertUser(ctx context.Context, user models.User) error {
-	_, err := u.db.ExecContext(ctx, insertUser, user.ID, user.Name, user.Email, user.AuthProvider, user.IsAdmin, user.IsPremium, user.IsDeleted)
-	return err
+	return u.cm.RetryWithSingleFlight(ctx, func() error {
+		_, err := u.db.ExecContext(ctx, insertUser, user.ID, user.Name, user.Email, user.AuthProvider, user.IsAdmin, user.IsPremium, user.IsDeleted)
+		return err
+	})
 }
 
 func (u *UserDB) GetAllUsers(ctx context.Context) ([]models.User, error) {
 	var users []models.User
-	err := u.db.SelectContext(ctx, &users, getAllUsers)
+	err := u.cm.RetryWithSingleFlight(ctx, func() error {
+		return u.db.SelectContext(ctx, &users, getAllUsers)
+	})
 	return users, err
 }
