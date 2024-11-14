@@ -19,6 +19,7 @@ func SetupMiddlewares(app *echo.Echo) {
 			fmt.Sprintf("localhost:%s", utils.GetEnv("PORT")),
 			utils.GetEnv("CLIENT_URL"),
 		},
+		AllowCredentials: true,
 	}))
 	app.Use(m.Secure())
 	app.Use(session.Middleware(sessions.NewCookieStore([]byte(utils.GetEnv("GORILLA_SESSIONS_KEY")))))

@@ -3,39 +3,63 @@ const isLoggedIn = ref(false)
 const username = ref('')
 const email = ref('')
 const profile = useProfile()
+const BE = import.meta.env.VITE_BE_URL
+
+async function fetchSession() {
+  try {
+    const response = await fetch(`${BE}/api/auth/session`, {
+      credentials: 'include',
+    })
+    if (!response.ok) {
+      console.error('Failed to fetch session')
+      return
+    }
+    const body = await response.json()
+
+    return {
+      status: response.status,
+      data: body.data,
+    }
+  }
+  catch (e) {
+    return {
+      status: 500,
+      error: e,
+    }
+  }
+}
 
 async function checkSession() {
-  const { data, error } = await useFetch('/api/session')
-  if (error.value || !data.value) {
+  const { status, data, error } = await fetchSession()
+  if (status !== 200) {
     console.error(error.value)
     return
   }
 
-  const details = data.value.data.data
-  isLoggedIn.value = details.user_id !== ''
-  username.value = details.name
-  email.value = details.email
+  isLoggedIn.value = data.user_id !== ''
+  username.value = data.name
+  email.value = data.email
 
   profile.set(
-    details.user_id,
-    details.name,
-    details.email,
-    details.isAdmin,
-    details.isDeleted,
-    details.isPremium,
+    data.user_id,
+    data.name,
+    data.email,
+    data.isAdmin,
+    data.isDeleted,
+    data.isPremium,
   )
 }
-checkSession()
+
+onMounted(async () => {
+  await checkSession()
+})
 
 async function redirectToLogin() {
   if (isLoggedIn.value) {
     navigateTo('/dashboard')
     return
   }
-  const { data } = await useFetch('/api/login')
-  if (data.value && data.value.status === 307) {
-    navigateTo(data.value.data.redirectURI, { external: true })
-  }
+  await navigateTo(`${BE}/api/auth/google/login?r=client`, { external: true })
 }
 </script>
 
