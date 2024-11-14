@@ -3,7 +3,7 @@ build:
 	@make build-tailwind
 	@make build-templ
 	@make build-server
-	@make "Build complete!"
+	@echo "Build complete!"
 
 run:
 	@go run cmd/main.go
@@ -12,6 +12,10 @@ clean:
 	@echo "Cleaning..."
 	@rm -f main
 	@kill -15 $(lsof -ti:8080)
+
+migrate-status:
+	@echo "Checking migration status..."
+	@go run cmd/migrate/main.go status
 
 migrate-up:
 	@echo "Migrating up..."

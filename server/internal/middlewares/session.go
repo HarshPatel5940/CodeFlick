@@ -35,6 +35,7 @@ func SessionMiddleware(config Config) echo.MiddlewareFunc {
 	return func(next echo.HandlerFunc) echo.HandlerFunc {
 		return func(c echo.Context) error {
 			slog.Debug("Session Middleware Hit")
+			c.Logger().Debug("Session Middleware Hit")
 			sess, err := session.Get("session", c)
 
 			if config.RequiredAccess == "" {

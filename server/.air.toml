@@ -3,7 +3,7 @@ root = "."
 [build]
 args_bin = []
 bin = "./main"
-pre_cmd = ["make build-tailwind", "make build-templ"]
+pre_cmd = ["make build-templ", "make build-tailwind"]
 cmd = "make build"
 post_cmd = ["make clean"]
 delay = 0
