@@ -13,7 +13,7 @@ import (
 
 type MinioHandler struct {
 	client *minio.Client
-	cm     *ConnectionManager
+	cm     *RetryManager
 }
 
 var (
@@ -21,7 +21,7 @@ var (
 	MinioSSLPolicy  string = utils.GetEnv("MINIO_SSL_POLICY", "false")
 )
 
-func CreateMinioClient(cm *ConnectionManager) *MinioHandler {
+func CreateMinioClient(cm *RetryManager) *MinioHandler {
 	var client *minio.Client
 	var err error
 	SSLPolicy := MinioSSLPolicy == "true"

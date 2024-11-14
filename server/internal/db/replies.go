@@ -18,10 +18,10 @@ const (
 
 type ReplyDB struct {
 	db *sqlx.DB
-	cm *ConnectionManager
+	cm *RetryManager
 }
 
-func NewReplyDB(db *sqlx.DB, cm *ConnectionManager) *ReplyDB {
+func NewReplyDB(db *sqlx.DB, cm *RetryManager) *ReplyDB {
 	return &ReplyDB{db: db, cm: cm}
 }
 

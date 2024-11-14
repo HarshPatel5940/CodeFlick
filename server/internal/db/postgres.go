@@ -10,7 +10,7 @@ import (
 	_ "github.com/lib/pq"
 )
 
-func CreatePostgresConnection(cm *ConnectionManager) *sqlx.DB {
+func CreatePostgresConnection(cm *RetryManager) *sqlx.DB {
 	var db *sqlx.DB
 	var err error
 

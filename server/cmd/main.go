@@ -83,7 +83,7 @@ func main() {
 	utils.LoadEnv()
 	fx.New(
 		fx.Provide(
-			db.NewConnectionManager,
+			db.NewRetryManager,
 			db.CreatePostgresConnection,
 			db.CreateMinioClient,
 			db.NewGistDB,

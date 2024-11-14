@@ -35,7 +35,7 @@ type queuedOperation struct {
 	ctx       context.Context
 }
 
-type ConnectionManager struct {
+type RetryManager struct {
 	mu              sync.RWMutex
 	state           atomic.Int32
 	operationQueue  chan *queuedOperation
@@ -53,21 +53,22 @@ type ConnectionMetrics struct {
 	circuitBreaks    atomic.Int64
 }
 
-func NewConnectionManager() *ConnectionManager {
-	cm := &ConnectionManager{
+func NewRetryManager() *RetryManager {
+	cm := &RetryManager{
 		operationQueue: make(chan *queuedOperation, maxQueueSize),
 		quit:           make(chan struct{}),
 		metrics:        &ConnectionMetrics{},
 	}
 	cm.state.Store(int32(StateHealthy))
 
+	slog.Info("Starting Process Queue and Monitor Metrics....")
 	go cm.processQueue()
 	go cm.monitorMetrics()
 
 	return cm
 }
 
-func (cm *ConnectionManager) RetryWithSingleFlight(ctx context.Context, operation func() error) error {
+func (cm *RetryManager) RetryWithSingleFlight(ctx context.Context, operation func() error) error {
 	start := time.Now()
 	defer func() {
 		cm.metrics.totalOperations.Add(1)
@@ -108,7 +109,7 @@ func (cm *ConnectionManager) RetryWithSingleFlight(ctx context.Context, operatio
 	return ErrRecoveryFailed
 }
 
-func (cm *ConnectionManager) executeWithContext(ctx context.Context, operation func() error) error {
+func (cm *RetryManager) executeWithContext(ctx context.Context, operation func() error) error {
 	done := make(chan error, 1)
 
 	go func() {
@@ -123,7 +124,7 @@ func (cm *ConnectionManager) executeWithContext(ctx context.Context, operation f
 	}
 }
 
-func (cm *ConnectionManager) queueOperation(ctx context.Context, operation func() error) error {
+func (cm *RetryManager) queueOperation(ctx context.Context, operation func() error) error {
 	cm.metrics.queuedOperations.Add(1)
 
 	qOp := &queuedOperation{
@@ -147,7 +148,7 @@ func (cm *ConnectionManager) queueOperation(ctx context.Context, operation func(
 	}
 }
 
-func (cm *ConnectionManager) processQueue() {
+func (cm *RetryManager) processQueue() {
 	for {
 		select {
 		case <-cm.quit:
@@ -170,7 +171,7 @@ func (cm *ConnectionManager) processQueue() {
 	}
 }
 
-func (cm *ConnectionManager) monitorMetrics() {
+func (cm *RetryManager) monitorMetrics() {
 	ticker := time.NewTicker(circuitTickerInterval)
 	defer ticker.Stop()
 
@@ -190,23 +191,23 @@ func (cm *ConnectionManager) monitorMetrics() {
 	}
 }
 
-func (cm *ConnectionManager) isCircuitOpen() bool {
+func (cm *RetryManager) isCircuitOpen() bool {
 	return ConnectionState(cm.state.Load()) == StateCircuitOpen
 }
 
-func (cm *ConnectionManager) shouldAttemptReset() bool {
+func (cm *RetryManager) shouldAttemptReset() bool {
 	lastFailure := time.Unix(cm.lastFailureTime.Load(), 0)
 	return time.Since(lastFailure) > circuitBreakerResetTime
 }
 
-func (cm *ConnectionManager) setState(state ConnectionState) {
+func (cm *RetryManager) setState(state ConnectionState) {
 	cm.mu.Lock()
 	defer cm.mu.Unlock()
 	cm.state.Store(int32(state))
 	slog.Info("Connection state changed", "state", state)
 }
 
-func (cm *ConnectionManager) GetMetrics() ConnectionMetrics {
+func (cm *RetryManager) GetMetrics() ConnectionMetrics {
 	return ConnectionMetrics{
 		totalOperations:  atomic.Int64{},
 		failedOperations: atomic.Int64{},
@@ -216,7 +217,7 @@ func (cm *ConnectionManager) GetMetrics() ConnectionMetrics {
 	}
 }
 
-func (cm *ConnectionManager) Close() {
+func (cm *RetryManager) Close() {
 	close(cm.quit)
 }
 
@@ -230,7 +231,7 @@ var (
 	ErrCircuitOpen    = errors.New("circuit breaker is open")
 )
 
-func (cm *ConnectionManager) performRecovery(ctx context.Context, operation func() error) error {
+func (cm *RetryManager) performRecovery(ctx context.Context, operation func() error) error {
 	retryCount := 0
 
 	for retryCount < maxRetries {

@@ -19,10 +19,10 @@ const (
 
 type GistDB struct {
 	db *sqlx.DB
-	cm *ConnectionManager
+	cm *RetryManager
 }
 
-func NewGistDB(db *sqlx.DB, cm *ConnectionManager) *GistDB {
+func NewGistDB(db *sqlx.DB, cm *RetryManager) *GistDB {
 	return &GistDB{db: db, cm: cm}
 }
 

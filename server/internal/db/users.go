@@ -17,10 +17,10 @@ const (
 
 type UserDB struct {
 	db *sqlx.DB
-	cm *ConnectionManager
+	cm *RetryManager
 }
 
-func NewUserDB(db *sqlx.DB, cm *ConnectionManager) *UserDB {
+func NewUserDB(db *sqlx.DB, cm *RetryManager) *UserDB {
 	return &UserDB{db: db, cm: cm}
 }
 
