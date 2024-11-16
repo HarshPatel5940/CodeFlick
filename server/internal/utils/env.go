@@ -11,7 +11,7 @@ import (
 var env = map[string]interface{}{
 	"PORT":                    "8080",
 	"ENV":                     "development",
-	"CLIENT_URL":              "http://localhost:3000/",
+	"CLIENT_URL":              "http://localhost:3000",
 	"DATABASE_URL":            nil,
 	"GOOGLE_CLIENT_ID":        nil,
 	"GOOGLE_CLIENT_SECRET":    nil,
