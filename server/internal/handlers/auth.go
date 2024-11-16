@@ -55,7 +55,14 @@ func InitialiseAuth() {
 }
 
 func (ah *AuthHandler) GoogleOauthLogin(c echo.Context) error {
-	sess, err := session.Get("session", c)
+	sess, err := session.Get("_gothic_temp_session", c)
+	sess.Options = &sessions.Options{
+		Path:     "/",
+		Secure:   true,
+		MaxAge:   ah.sessionAge,
+		HttpOnly: true,
+	}
+
 	redirectParam := c.QueryParam("r")
 
 	if err != nil || sess.Values["user_id"] == nil || sess.Values["user_id"] == "" {
@@ -101,7 +108,7 @@ func (ah *AuthHandler) GoogleOauthCallback(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusInternalServerError, "Failed to complete user authentication")
 	}
 
-	sess, err := session.Get("session", c)
+	sess, err := session.Get("_gothic_session", c)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusUnauthorized, map[string]any{
 			"success": false,
@@ -151,14 +158,26 @@ func (ah *AuthHandler) GoogleOauthCallback(c echo.Context) error {
 			"message": "Failed to save session!",
 		})
 	}
+	Tsess, err := session.Get("_gothic_temp_session", c)
+	if err != nil {
+		slog.Error(err.Error())
+		return c.JSON(http.StatusOK, map[string]any{
+			"success": true,
+			"message": "Successfully logged in with Google!  Redirect Checking Failed...",
+		})
+	}
 
-	redirectParam, ok := sess.Values["oauth_redirect"].(string)
+	redirectParam, ok := Tsess.Values["oauth_redirect"].(string)
 	if !ok || redirectParam == "" {
 		redirectParam = c.QueryParam("r")
 	}
 
-	delete(sess.Values, "oauth_redirect")
-	if err := sess.Save(c.Request(), c.Response()); err != nil {
+	Tsess.Values = make(map[interface{}]interface{})
+	delete(Tsess.Values, "oauth_redirect")
+	Tsess.Options = &sessions.Options{
+		MaxAge: -1,
+	}
+	if err := Tsess.Save(c.Request(), c.Response()); err != nil {
 		slog.Error("Failed to clear oauth_redirect from session", "error", err)
 	}
 
@@ -190,6 +209,47 @@ func (ah *AuthHandler) GetSessionDetails(c echo.Context) error {
 			"isPremium": sess.IsPremium,
 			"isDeleted": sess.IsDeleted,
 		},
+	})
+}
+
+func (ah *AuthHandler) Logout(c echo.Context) error {
+	// sess, err := session.Get("session", c)
+	// if err != nil {
+	// 	return echo.NewHTTPError(http.StatusUnauthorized, map[string]any{
+	// 		"success": false,
+	// 		"message": "Failed to get session!",
+	// 	})
+	// }
+
+	// sess.Options = &sessions.Options{
+	// 	Path:     "/",
+	// 	Secure:   true,
+	// 	MaxAge:   -1,
+	// 	HttpOnly: true,
+	// }
+
+	// sess.Values = make(map[interface{}]interface{})
+
+	// if err := sess.Save(c.Request(), c.Response()); err != nil {
+	// 	return echo.NewHTTPError(http.StatusInternalServerError, map[string]any{
+	// 		"success": false,
+	// 		"message": "Failed to save session!",
+	// 	})
+	// }
+
+	// gothic.
+
+	if err := gothic.Logout(c.Response(),c.Request()); err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, map[string]any{
+			"success": false,
+			"message": "Error during logout!",
+			"details": err.Error(),
+		})
+	}
+
+	return c.JSON(http.StatusOK, map[string]any{
+		"success": true,
+		"message": "Successfully logged out!",
 	})
 }
 

@@ -37,6 +37,7 @@ func SetupAPIRoutes(e *echo.Group,
 	e.GET("/auth/session", ah.GetSessionDetails, m.SessionMiddleware(m.Config{
 		RequiredAccess: m.AccessLevelUser,
 	}))
+	e.POST("/auth/logout", ah.Logout)
 
 	gistsRoutes := e.Group("/gists", m.SessionMiddleware(m.Config{
 		RequiredAccess: m.AccessLevelUser,
