@@ -3,6 +3,7 @@ const isLoggedIn = ref(false)
 const username = ref('')
 const email = ref('')
 const profile = useProfile()
+const toast = useToast()
 const BE = import.meta.env.VITE_BE_URL
 
 async function fetchSession() {
@@ -48,6 +49,11 @@ async function checkSession() {
     data.isDeleted,
     data.isPremium,
   )
+  toast.add({
+    title: 'Welcome back!',
+    description: `You are now logged in as ${data.name}`,
+    type: 'success',
+  })
 }
 
 onMounted(async () => {
