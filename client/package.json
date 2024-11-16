@@ -1,5 +1,5 @@
 {
-  "name": "nuxt-app",
+  "name": "codeflick-frontend",
   "type": "module",
   "private": true,
   "scripts": {
@@ -14,7 +14,7 @@
   },
   "dependencies": {
     "@iconify-json/logos": "1.2.3",
-    "@nuxt/ui": "^2.18.7",
+    "@nuxt/ui": "^2.19.2",
     "@pinia/nuxt": "^0.5.0",
     "@vueuse/motion": "^2.2.6",
     "@vueuse/nuxt": "^11.1.0",

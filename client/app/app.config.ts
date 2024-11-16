@@ -1,8 +1,8 @@
 export default defineAppConfig({
   ui: {
     notifications: {
-      position: 'top-0 bottom-[unset]',
+      position: 'top-8 bottom-[unset]',
+      transition: 'slide',
     },
   },
-
 })

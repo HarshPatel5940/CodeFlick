@@ -19,15 +19,30 @@ async function signOut() {
 }
 
 async function handleSignOut() {
-  const res = await signOut()
   toast.add({
-    title: 'Signed out!',
+    title: 'Signing out!',
     color: 'orange',
     icon: 'mingcute:alert-line',
     timeout: 2000,
   })
+  const res = await signOut()
+  if (res.status !== 200) {
+    toast.add({
+      title: 'Failed to sign out!',
+      color: 'red',
+      icon: 'mingcute:alert-line',
+      timeout: 2000,
+    })
+    return
+  }
   profile.reset()
   navigateTo('/')
+  toast.add({
+    title: 'Signed out!',
+    color: 'green',
+    icon: 'heroicons:check-circle',
+    timeout: 2000,
+  })
 }
 
 const items = [
