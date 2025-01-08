@@ -7,5 +7,8 @@ export default nuxt(
     formatters: true,
 
     ignores: ['*.config.*', 'vite-env.d.ts'],
+    rules: {
+      "consistent-type-definitions": 'off'
+    }
   }),
 )

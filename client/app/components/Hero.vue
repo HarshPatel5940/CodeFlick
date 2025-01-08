@@ -53,6 +53,7 @@ async function checkSession() {
     title: 'Welcome back!',
     description: `You are now logged in as ${data.name}`,
     type: 'success',
+    timeout: 2000,
   })
 }
 

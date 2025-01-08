@@ -74,9 +74,9 @@ const items = [
 </script>
 
 <template>
-  <div class="h-12 w-full border flex flex-row align-middle items-center justify-between px-5 overflow-x-hidden">
+  <div class="h-14 w-4/6 lg:w-5/6 mx-5 border-4 dark:border-myborder shadow-2xl rounded-full dark:bg-[#1F2938] flex flex-row items-center justify-between px-5 overflow-x-hidden">
     <div>
-      <h1 class="text-2xl font-bold text-gray-900 dark:text-white">
+      <h1 class="text-lg md:text-2xl font-bold font-mono text-gray-900 dark:text-white">
         CodeFlick
       </h1>
     </div>

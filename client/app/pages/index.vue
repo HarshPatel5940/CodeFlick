@@ -1,5 +1,5 @@
 <template>
-  <main class="w-screen h-screen dark:bg-neutral-900 bg-white">
+  <main class="w-screen h-screen dark:bg-mybg bg-white">
     <div class="fixed top-5 right-5">
       <Theme />
     </div>
