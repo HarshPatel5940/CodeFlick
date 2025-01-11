@@ -1,11 +1,11 @@
-import { defineStore } from "pinia";
+import { defineStore } from 'pinia'
 
 export const useProfile = defineStore({
-  id: "profile",
+  id: 'profile',
   state: () => ({
-    UserID: "",
-    name: "",
-    email: "",
+    UserID: '',
+    name: '',
+    email: '',
     isAdmin: false,
     isDeleted: false,
     isPremium: false,
@@ -17,25 +17,25 @@ export const useProfile = defineStore({
       email: string,
       isAdmin: boolean,
       isDeleted: boolean,
-      isPremium: boolean
+      isPremium: boolean,
     ) {
-      this.UserID = UserID;
-      this.name = name;
-      this.email = email;
-      this.isAdmin = isAdmin;
-      this.isDeleted = isDeleted;
-      this.isPremium = isPremium;
+      this.UserID = UserID
+      this.name = name
+      this.email = email
+      this.isAdmin = isAdmin
+      this.isDeleted = isDeleted
+      this.isPremium = isPremium
     },
     reset() {
-      this.UserID = "";
-      this.name = "";
-      this.email = "";
-      this.isAdmin = false;
-      this.isDeleted = false;
-      this.isPremium = false;
+      this.UserID = ''
+      this.name = ''
+      this.email = ''
+      this.isAdmin = false
+      this.isDeleted = false
+      this.isPremium = false
     },
   },
   persist: {
     storage: piniaPluginPersistedstate.cookies(),
   },
-});
+})

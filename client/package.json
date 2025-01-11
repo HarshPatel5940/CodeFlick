@@ -10,7 +10,7 @@
     "postinstall": "nuxt prepare",
     "start": "node .output/server/index.mjs",
     "lint": "eslint --cache .",
-    "lint:fix": "nr lint --fix"
+    "lint:fix": "eslint --fix"
   },
   "dependencies": {
     "@iconify-json/logos": "1.2.3",
@@ -26,13 +26,12 @@
   },
   "devDependencies": {
     "@antfu/eslint-config": "^3.9.1",
-    "eslint-plugin-format": "^0.1.2",
     "@iconify-json/devicon": "^1.2.5",
     "@iconify-json/solar": "^1.2.1",
     "@iconify-json/tabler": "^1.2.8",
     "@nuxt/devtools": "latest",
     "@nuxt/eslint": "^0.7.0",
-    "@types/prismjs": "^1.26.5"
-  },
-  "packageManager": "pnpm@9.13.2+sha512.88c9c3864450350e65a33587ab801acf946d7c814ed1134da4a924f6df5a2120fd36b46aab68f7cd1d413149112d53c7db3a4136624cfd00ff1846a0c6cef48a"
+    "@types/prismjs": "^1.26.5",
+    "eslint-plugin-format": "^0.1.2"
+  }
 }

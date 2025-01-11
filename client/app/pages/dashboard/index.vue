@@ -7,7 +7,7 @@
       <MyGists />
       <UDivider orientation="vertical" class="h-[75vh] self-center hidden md:block" />
       <GlobalGists />
-      <!-- <CodePreviewCard title="Hello boss" filename="hi" custom-url="feefw" /> -->
+      <CreateGist />
     </div>
   </main>
 </template>
