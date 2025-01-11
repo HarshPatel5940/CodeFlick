@@ -168,7 +168,7 @@ func (gh *GistHandler) ListBuckets(c echo.Context) error {
 
 func (gh *GistHandler) GetAllGists(c echo.Context) error {
 	var User models.User = c.Get("UserSessionDetails").(models.User)
-	var fetchPublic = c.QueryParam("fetchPublic")
+	fetchPublic := c.QueryParam("fetchPublic")
 
 	gists, err := gh.gistDB.GetGistsByUserID(context.Background(), User.ID, fetchPublic)
 	if err != nil {
