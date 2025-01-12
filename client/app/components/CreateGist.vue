@@ -35,7 +35,7 @@ onMounted(() => {
       </div>
       <UInput
         v-model="gistDescription"
-        size="lg"
+        size="xl"
         placeholder="Gist Description"
         :ui="{ icon: { trailing: { pointer: '' } } }"
       >
@@ -51,7 +51,7 @@ onMounted(() => {
         </template>
       </UInput>
 
-      <UTextarea v-model="gistContent" resize size="lg" placeholder="Zaabang your gist content here!!!" />
+      <UTextarea v-model="gistContent" resize size="xl" placeholder="Zaabang your gist content here!!!" />
       <div class="flex flex-row justify-end pt-3 gap-2 h-11">
         <UButton
           icon="i-heroicons-pencil-square"
@@ -59,7 +59,7 @@ onMounted(() => {
           class="rounded-full"
           color="primary"
           variant="solid"
-          label="Create Public Gists"
+          label="Create Public Gist"
           :trailing="false"
         />
         <UButton
@@ -68,11 +68,11 @@ onMounted(() => {
           class="rounded-full"
           color="primary"
           variant="solid"
-          label="Create Secret Gists"
+          label="Create Secret Gist"
           :trailing="false"
         />
       </div>
-      <UDivider class="pt-3 shadow-lg  dark:shadow-myborder/75" />
+      <UDivider class="pt-2 dark:pt-3 shadow-lg shadow-myLightBorder/30 dark:shadow-myborder/75" />
     </div>
   </div>
 </template>

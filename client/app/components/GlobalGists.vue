@@ -73,7 +73,7 @@ onMounted(async () => {
           </UCard>
         </a>
       </div>
-      <UDivider class="pt-3 shadow-lg  dark:shadow-myborder/75" />
+      <UDivider class="pt-2 dark:pt-3 shadow-lg shadow-myLightBorder/30 dark:shadow-myborder/75" />
     </div>
   </div>
 </template>

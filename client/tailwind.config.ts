@@ -7,6 +7,8 @@ export default <Partial<Config>>{
       colors: {
         mybg: '#020d1e',
         myborder: '#2c3c54',
+        myLightBg: '#F4F5F9',
+        myLightBorder: '#282626',
       }
     }
   }
