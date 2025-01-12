@@ -48,7 +48,7 @@ async function handleSignOut() {
 const items = [
   [{
     label: `${profile.name}`,
-    slot: 'account',
+    slot: 'username',
     disabled: true,
   }],
   [{
@@ -83,7 +83,7 @@ const items = [
     <div class="flex flex-row items-center h-full ">
       <UDropdown :items="items" :ui="{ item: { disabled: 'cursor-text select-text' } }" :popper="{ placement: 'bottom-start' }" class="bg-inherit">
         <Icon name="iconoir:profile-circle" class="text-green-500 w-7 h-7" />
-        <template #account="{ item }">
+        <template #username="{ item }">
           <div class="text-left">
             Signed in as <strong>{{ item.label }}</strong>
           </div>

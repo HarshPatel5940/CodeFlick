@@ -68,26 +68,28 @@ onMounted(async () => {
       </div>
       <div v-else class="flex flex-col space-y-4">
         <div v-for="gist in myGists" :key="gist.fieldId" class="bg-white dark:bg-gray-800/75 rounded-lg p-2">
-          <a :href="gist.shortUrl ">
-            <UCard>
-              <template #header>
-                {{ gist.gistTitle }}
-              </template>
-              <template #footer>
-                <div class="flex justify-between items-center">
-                  <div class="flex items-center">
-                    <Icon name="heroicons:clock" class="w-5 h-5 text-yellow-500" />
-                    <div class="ml-1">
-                      <NuxtTime :datetime="gist.updatedAt" relative />
+          <a :href="gist.shortUrl" class="w-full">
+            <UTooltip :text="gist.shortUrl" :popper="{ placement: 'top-start' }" class="w-full">
+              <UCard class="w-full">
+                <div>
+                  {{ gist.gistTitle }}
+                </div>
+                <template #footer>
+                  <div class="flex justify-between items-center">
+                    <div class="flex items-center">
+                      <Icon name="heroicons:clock" class="w-5 h-5 text-yellow-500" />
+                      <div class="ml-1">
+                        <NuxtTime :datetime="gist.updatedAt" relative />
+                      </div>
+                    </div>
+                    <div class="flex items-center">
+                      <Icon name="heroicons:eye" class="w-5 h-5 text-blue-500" />
+                      <span class="ml-1">{{ gist.viewCount }}</span>
                     </div>
                   </div>
-                  <div class="flex items-center">
-                    <Icon name="heroicons:eye" class="w-5 h-5 text-blue-500" />
-                    <span class="ml-1">{{ gist.viewCount }}</span>
-                  </div>
-                </div>
-              </template>
-            </UCard>
+                </template>
+              </UCard>
+            </UTooltip>
           </a>
         </div>
       </div>
