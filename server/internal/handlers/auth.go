@@ -239,7 +239,7 @@ func (ah *AuthHandler) Logout(c echo.Context) error {
 
 	// gothic.
 
-	if err := gothic.Logout(c.Response(),c.Request()); err != nil {
+	if err := gothic.Logout(c.Response(), c.Request()); err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, map[string]any{
 			"success": false,
 			"message": "Error during logout!",

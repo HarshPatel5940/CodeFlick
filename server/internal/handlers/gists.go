@@ -59,9 +59,23 @@ func (gh *GistHandler) UploadGist(c echo.Context) error {
 		Gist.GistTitle = fmt.Sprintf("%s-%s", file.Filename, Gist.FileID)
 	}
 
+	if len(Gist.GistTitle) < 5 {
+		return echo.NewHTTPError(http.StatusBadRequest, map[string]any{
+			"success": false,
+			"message": "Gist Title must be atleast 5 characters long!",
+		})
+	}
+
 	Gist.ShortUrl = c.FormValue("custom_url")
 	if Gist.ShortUrl == "" {
 		Gist.ShortUrl = fmt.Sprintf("%s-%s", file.Filename, Gist.FileID)
+	}
+
+	if len(Gist.ShortUrl) < 5 {
+		return echo.NewHTTPError(http.StatusBadRequest, map[string]any{
+			"success": false,
+			"message": "Short URL must be atleast 5 characters long!",
+		})
 	}
 
 	Gist.IsPublic, err = strconv.ParseBool(c.FormValue("is_public"))
@@ -85,7 +99,7 @@ func (gh *GistHandler) UploadGist(c echo.Context) error {
 
 	fileName := fmt.Sprintf("%s/%s", Gist.UserID, Gist.FileID)
 
-	fileInfo, err := gh.minio.PutObject(context.Background(),
+	_, err = gh.minio.PutObject(context.Background(),
 		fileName,
 		src,
 		file.Size,
@@ -98,7 +112,7 @@ func (gh *GistHandler) UploadGist(c echo.Context) error {
 		})
 	}
 
-	err = gh.gistDB.InsertGist(context.Background(), Gist)
+	_, err = gh.gistDB.InsertGist(context.Background(), Gist)
 	if err != nil {
 		if strings.Contains(err.Error(), "duplicate key value violates unique constraint") {
 			if err := gh.minio.RemoveObject(context.Background(), fileName, minio.RemoveObjectOptions{}); err != nil {
@@ -125,8 +139,6 @@ func (gh *GistHandler) UploadGist(c echo.Context) error {
 	return c.JSON(http.StatusCreated, map[string]any{
 		"success":    true,
 		"message":    "Gist uploaded successfully!",
-		"key":        fileInfo.Key,
-		"fileSize":   fileInfo.Size,
 		"file_id":    Gist.FileID,
 		"short_url":  Gist.ShortUrl,
 		"title":      Gist.GistTitle,
@@ -168,8 +180,9 @@ func (gh *GistHandler) ListBuckets(c echo.Context) error {
 
 func (gh *GistHandler) GetAllGists(c echo.Context) error {
 	var User models.User = c.Get("UserSessionDetails").(models.User)
+	fetchPublic := c.QueryParam("fetchPublic")
 
-	gists, err := gh.gistDB.GetGistsByUserID(context.Background(), User.ID)
+	gists, err := gh.gistDB.GetGistsByUserID(context.Background(), User.ID, fetchPublic)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, map[string]any{
 			"success": false,
