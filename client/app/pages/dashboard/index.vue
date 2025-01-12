@@ -5,8 +5,8 @@
     </div>
     <div class="w-screen h-screen bg-inherit flex flex-col md:flex-row dark:bg-inherit">
       <MyGists />
-      <UDivider orientation="vertical" class="h-[75vh] self-center hidden md:block" size="sm" />
       <GlobalGists />
+      <UDivider orientation="vertical" class="h-[75vh] self-center hidden md:block" size="xs" />
       <CreateGist />
     </div>
   </main>

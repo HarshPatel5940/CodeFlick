@@ -46,7 +46,7 @@ onMounted(async () => {
     </div>
   </div>
   <div v-else>
-    <div class="flex flex-col gap-y-4 p-5 md:px-10 w-full md:w-96 max-h-[85vh] overflow-y-scroll md:ml-8 my-8 md:my-14">
+    <div class="flex flex-col gap-y-4 p-5 md:px-10 w-full md:w-96 max-h-[85vh] overflow-y-scroll my-8 md:my-14">
       <h2 class="text-md md:text-xl font-mono tracking-wider underline-offset-2 dark:no-underline">
         Public Gists
       </h2>
