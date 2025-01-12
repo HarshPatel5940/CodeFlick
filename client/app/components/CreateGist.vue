@@ -7,7 +7,6 @@ const gistDescription = ref('')
 const gistFileName = ref('')
 const gistContent = ref('')
 
-
 onMounted(() => {
   Prism.highlightAll()
 })
