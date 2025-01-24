@@ -241,11 +241,6 @@ func (gh *GistHandler) GetGist(c echo.Context) error {
 		}
 	}()
 
-	gistStat, err := gistData.Stat()
-	if err != nil {
-		return handleMinioError(err)
-	}
-
 	metadata := map[string]interface{}{
 		"UserID":     Gist.UserID,
 		"ForkedFrom": Gist.ForkedFrom,
@@ -257,28 +252,26 @@ func (gh *GistHandler) GetGist(c echo.Context) error {
 		"UpdatedAt":  Gist.UpdatedAt,
 	}
 
-	metadataJSON, err := json.Marshal(metadata)
-	if err != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, map[string]any{
-			"success": false,
-			"message": "Failed to process metadata",
-		})
-	}
+    metadataJSON, err := json.Marshal(metadata)
+    if err != nil {
+        return echo.NewHTTPError(http.StatusInternalServerError, map[string]any{
+            "success": false,
+            "message": "Failed to process metadata",
+        })
+    }
 
-	c.Response().Header().Set("Content-Type", "application/octet-stream")
-	c.Response().Header().Set("X-Metadata-Length", strconv.Itoa(len(metadataJSON)))
-	c.Response().Header().Set("X-Metadata", string(metadataJSON))
-	c.Response().Header().Set("Content-Length", strconv.FormatInt(gistStat.Size, 10))
+    c.Response().Header().Set("Content-Type", "application/octet-stream")
+    c.Response().Header().Set("X-Metadata", string(metadataJSON))
 
-	buffer := &bytes.Buffer{}
-	if _, err := io.Copy(buffer, gistData); err != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, map[string]any{
-			"success": false,
-			"message": "Failed to read file content",
-		})
-	}
+    buffer := &bytes.Buffer{}
+    if _, err := io.Copy(buffer, gistData); err != nil {
+        return echo.NewHTTPError(http.StatusInternalServerError, map[string]any{
+            "success": false,
+            "message": "Failed to read file content",
+        })
+    }
 
-	return c.Blob(http.StatusOK, "application/octet-stream", buffer.Bytes())
+    return c.Blob(http.StatusOK, "application/octet-stream", buffer.Bytes())
 }
 
 func (gh *GistHandler) UpdateGist(c echo.Context) error {

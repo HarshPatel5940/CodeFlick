@@ -23,6 +23,6 @@ func SetupMiddlewares(app *echo.Echo) {
 	}))
 	app.Use(m.Secure())
 	app.Use(session.Middleware(sessions.NewCookieStore([]byte(utils.GetEnv("GORILLA_SESSIONS_KEY")))))
-	app.Use(m.RateLimiter(m.NewRateLimiterMemoryStore(10)))
+	app.Use(m.RateLimiter(m.NewRateLimiterMemoryStore(20)))
 	app.Use(m.Recover())
 }
