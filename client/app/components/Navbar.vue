@@ -35,7 +35,7 @@ async function handleSignOut() {
     })
     return
   }
-  profile.reset()
+  profile.$reset()
   navigateTo('/')
   toast.add({
     title: 'Signed out!',
@@ -47,7 +47,7 @@ async function handleSignOut() {
 
 const items = [
   [{
-    label: `${profile.name}`,
+    label: `${profile.data.name}`,
     slot: 'username',
     disabled: true,
   }],
@@ -77,7 +77,9 @@ const items = [
   <div class="h-14 w-4/6 lg:w-5/6 mx-5 border-4 shadow-myLightBorder/50 dark:border-myborder dark:shadow-myborder/75 shadow-2xl rounded-full dark:bg-[#1F2938] flex flex-row items-center justify-between px-5 overflow-x-hidden">
     <div>
       <h1 class="text-lg md:text-2xl font-bold font-mono text-gray-900 dark:text-white">
-        CodeFlick
+        <a href="/">
+          CodeFlick
+        </a>
       </h1>
     </div>
     <div class="flex flex-row items-center h-full ">

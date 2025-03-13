@@ -2,6 +2,7 @@ package middlewares
 
 import (
 	"fmt"
+	"net/http"
 
 	"github.com/HarshPatel5940/CodeFlick/internal/utils"
 	"github.com/gorilla/sessions"
@@ -20,6 +21,9 @@ func SetupMiddlewares(app *echo.Echo) {
 			utils.GetEnv("CLIENT_URL"),
 		},
 		AllowCredentials: true,
+		ExposeHeaders: []string{"gist-metadata", "Gist-Metadata"}, // Try both cases
+		AllowMethods: []string{http.MethodGet, http.MethodPost, http.MethodPut, http.MethodDelete},
+		AllowHeaders: []string{echo.HeaderOrigin, echo.HeaderContentType, echo.HeaderAccept},
 	}))
 	app.Use(m.Secure())
 	app.Use(session.Middleware(sessions.NewCookieStore([]byte(utils.GetEnv("GORILLA_SESSIONS_KEY")))))

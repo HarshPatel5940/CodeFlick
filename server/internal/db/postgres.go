@@ -1,6 +1,8 @@
 package db
 
 import (
+	"context"
+	"log"
 	"log/slog"
 	"os/exec"
 	"time"
@@ -14,18 +16,19 @@ func CreatePostgresConnection(cm *RetryManager) *sqlx.DB {
 	var db *sqlx.DB
 	var err error
 
-	for attempt := 0; attempt <= maxRetries; attempt++ {
+	if err = cm.RetryWithSingleFlight(context.Background(), func() error {
 		db, err = sqlx.Open("postgres", utils.GetEnv("DATABASE_URL"))
-		if handleError(err, attempt, "connect to postgres") {
-			continue
+		if err != nil {
+			return err
 		}
 
-		err = db.Ping()
-		if handleError(err, attempt, "ping postgres") {
-			continue
+		if err = db.Ping(); err != nil {
+			return err
 		}
 
-		break
+		return nil
+	}); err != nil {
+		log.Fatal("Error connecting to database", "error", err)
 	}
 
 	db.SetMaxOpenConns(25)
@@ -37,26 +40,11 @@ func CreatePostgresConnection(cm *RetryManager) *sqlx.DB {
 	return db
 }
 
-func handleError(err error, attempt int, operation string) bool {
-	if err != nil {
-		if attempt < maxRetries {
-			slog.Error("Failed to "+operation+", retrying...",
-				"attempt", attempt+1,
-				"error", err)
-			time.Sleep(retryInterval)
-			return true
-		}
-		slog.Error("Failed to "+operation+" after all retries", "error", err)
-		panic(err)
-	}
-	return false
-}
-
 func InitPostgresDB() {
 	cmd := exec.Command("make", "migrate-status")
 	output, err := cmd.CombinedOutput()
 	if err != nil {
-		slog.Error("Error executing migration command", "error", err)
+		log.Panic("Error executing migration command", "error", err)
 	}
 
 	if len(output) > 0 {

@@ -15,23 +15,22 @@ export default defineNuxtConfig({
   ssr: false,
 
   imports: {
-    dirs: ['./layouts', './components', './pages', './store' ],
-  },
-
+      dirs: [
+        './store',
+        './components',
+        './components/ui',
+        './components/home',
+        './components/dashboard',
+      ],
+    },
   devtools: {
-    enabled: true,
+    enabled: false,
 
     timeline: {
       enabled: true,
     },
   },
 
-  plugins: [
-    {
-      src: './app/plugins/myPrism.ts',
-      mode: 'client'
-    }
-  ],
   css:['~/assets/css/onedark.css'],
 
   srcDir: 'app',
@@ -46,4 +45,12 @@ export default defineNuxtConfig({
       },
     },
   },
+
+  components: [
+      {
+        path: '~/components',
+        pathPrefix: false,
+      },
+    ],
+
 })

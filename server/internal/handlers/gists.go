@@ -3,7 +3,6 @@ package handlers
 import (
 	"bytes"
 	"context"
-	"encoding/json"
 	"fmt"
 	"io"
 	"log/slog"
@@ -235,43 +234,38 @@ func (gh *GistHandler) GetGist(c echo.Context) error {
 	if err != nil {
 		return handleMinioError(err)
 	}
-	go func() {
+	defer func() {
 		if err := gistData.Close(); err != nil {
 			slog.AnyValue(fmt.Errorf("error while closing the file: %w", err))
 		}
 	}()
 
 	metadata := map[string]interface{}{
-		"UserID":     Gist.UserID,
-		"ForkedFrom": Gist.ForkedFrom,
-		"GistTitle":  Gist.GistTitle,
-		"ShortUrl":   Gist.ShortUrl,
-		"ViewCount":  Gist.ViewCount,
-		"IsPublic":   Gist.IsPublic,
-		"CreatedAt":  Gist.CreatedAt,
-		"UpdatedAt":  Gist.UpdatedAt,
+		"userID":     Gist.UserID,
+		"fileID":     Gist.FileID,
+		"gistTitle":  Gist.GistTitle,
+		"shortUrl":   Gist.ShortUrl,
+		"viewCount":  Gist.ViewCount,
+		"isPublic":   Gist.IsPublic,
+		"createdAt":  Gist.CreatedAt,
+		"updatedAt":  Gist.UpdatedAt,
+		"forkedFrom": Gist.ForkedFrom,
 	}
 
-    metadataJSON, err := json.Marshal(metadata)
-    if err != nil {
-        return echo.NewHTTPError(http.StatusInternalServerError, map[string]any{
-            "success": false,
-            "message": "Failed to process metadata",
-        })
-    }
+	buffer := &bytes.Buffer{}
+	if _, err := io.Copy(buffer, gistData); err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, map[string]any{
+			"success": false,
+			"message": "Failed to read file content",
+		})
+	}
 
-    c.Response().Header().Set("Content-Type", "application/octet-stream")
-    c.Response().Header().Set("X-Metadata", string(metadataJSON))
-
-    buffer := &bytes.Buffer{}
-    if _, err := io.Copy(buffer, gistData); err != nil {
-        return echo.NewHTTPError(http.StatusInternalServerError, map[string]any{
-            "success": false,
-            "message": "Failed to read file content",
-        })
-    }
-
-    return c.Blob(http.StatusOK, "application/octet-stream", buffer.Bytes())
+	return c.JSON(http.StatusOK, map[string]any{
+		"success":  true,
+		"message":  "Gist fetched successfully",
+		"content":  string(buffer.Bytes()),
+		"metadata": metadata,
+	})
 }
 
 func (gh *GistHandler) UpdateGist(c echo.Context) error {

@@ -7,13 +7,13 @@ function toggleColorMode() {
 }
 
 onMounted(() => {
-  colorMode.value = theme.getTheme()
+  colorMode.value = theme.theme
 })
 </script>
 
 <template>
   <button class="p-2 bg-inherit border-none" @click="toggleColorMode">
-    <Icon v-if="theme.getThemeBool()" name="solar:moon-bold" class="p-1 text-white" />
-    <Icon v-if="!theme.getThemeBool()" name="solar:sun-bold" class="p-1 text-black" />
+    <Icon v-if="theme.themeBool" name="solar:moon-bold" class="p-1" />
+    <Icon v-if="!theme.themeBool" name="solar:sun-bold" class="p-1 " style="color: #000;" />
   </button>
 </template>

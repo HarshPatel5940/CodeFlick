@@ -1,7 +1,6 @@
 import { defineStore } from 'pinia'
 
-export const useProfile = defineStore({
-  id: 'profile',
+export const useProfile = defineStore('profile', {
   state: () => ({
     UserID: '',
     name: '',
@@ -10,6 +9,9 @@ export const useProfile = defineStore({
     isDeleted: false,
     isPremium: false,
   }),
+  getters: {
+    data: state => state,
+  },
   actions: {
     set(
       UserID: string,

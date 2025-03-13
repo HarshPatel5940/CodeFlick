@@ -26,7 +26,7 @@ func CreateMinioClient(cm *RetryManager) *MinioHandler {
 	var err error
 	SSLPolicy := MinioSSLPolicy == "true"
 
-	for attempt := 0; attempt <= maxRetries; attempt++ {
+	if err = cm.RetryWithSingleFlight(context.Background(), func() error {
 		client, err = minio.New(utils.GetEnv("MINIO_ENDPOINT"), &minio.Options{
 			Creds: credentials.NewStaticV4(
 				utils.GetEnv("MINIO_ACCESS_KEY"),
@@ -39,11 +39,9 @@ func CreateMinioClient(cm *RetryManager) *MinioHandler {
 			_, err = client.ListBuckets(context.Background())
 		}
 
-		if handleError(err, attempt, "initialize minio client") {
-			continue
-		}
-
-		break
+		return nil
+	}); err != nil {
+		log.Panic("Error connecting to Minio", err)
 	}
 
 	return &MinioHandler{client: client, cm: cm}

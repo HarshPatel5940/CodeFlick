@@ -43,6 +43,10 @@ func NewApp(
 	pages := e.Group("")
 	routes.SetupPageRoutes(pages)
 
+	if Debug := utils.GetEnv("DEBUG"); Debug == "true" {
+		e.Debug = true
+	}
+
 	return &App{
 		Echo:         e,
 		DB:           db,

@@ -1,6 +1,5 @@
-// eslint-disable-next-line ts/consistent-type-definitions
-export type Gist = {
-  fieldId: string
+export interface Gist {
+  fileId: string
   userId: string
 
   gistTitle: string

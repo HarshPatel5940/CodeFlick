@@ -2,6 +2,7 @@
   "name": "codeflick-frontend",
   "type": "module",
   "private": true,
+  "packageManager": "pnpm@10.5.2",
   "scripts": {
     "build": "nuxt build",
     "dev": "nuxt dev",
@@ -14,24 +15,23 @@
   },
   "dependencies": {
     "@iconify-json/logos": "1.2.4",
-    "@nuxt/ui": "^2.20.0",
-    "@pinia/nuxt": "^0.9.0",
+    "@nuxt/ui": "^2.21.0",
+    "@pinia/nuxt": "^0.10.1",
     "@vueuse/motion": "^2.2.6",
-    "@vueuse/nuxt": "^12.4.0",
-    "nuxt": "^3.15.1",
+    "@vueuse/nuxt": "^12.7.0",
+    "highlight.js": "^11.11.1",
+    "nuxt": "^3.15.4",
     "nuxt-time": "1.0.3",
-    "pinia": "^2.3.0",
-    "pinia-plugin-persistedstate": "^4.2.0",
-    "prismjs": "^1.29.0"
+    "pinia": "^3.0.1",
+    "pinia-plugin-persistedstate": "^4.2.0"
   },
   "devDependencies": {
-    "@antfu/eslint-config": "^3.13.0",
-    "@iconify-json/devicon": "^1.2.11",
+    "@antfu/eslint-config": "^4.3.0",
+    "@iconify-json/devicon": "^1.2.17",
     "@iconify-json/solar": "^1.2.2",
-    "@iconify-json/tabler": "^1.2.14",
+    "@iconify-json/tabler": "^1.2.16",
     "@nuxt/devtools": "latest",
-    "@nuxt/eslint": "^0.7.5",
-    "@types/prismjs": "^1.26.5",
+    "@nuxt/eslint": "^1.1.0",
     "eslint-plugin-format": "^1.0.1"
   }
 }
