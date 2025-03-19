@@ -18,7 +18,7 @@
     "@pinia/nuxt": "^0.7.0",
     "@vueuse/motion": "^2.2.6",
     "@vueuse/nuxt": "^11.2.0",
-    "nuxt": "^3.14.159",
+    "nuxt": "^3.16.0",
     "pinia": "^2.2.6",
     "pinia-plugin-persistedstate": "^4.1.3"
   },
