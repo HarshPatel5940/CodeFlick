@@ -12,6 +12,7 @@ type Gist struct {
 	GistTitle  string         `json:"gistTitle" db:"gist_title"`
 	ForkedFrom sql.NullString `json:"forkedFrom" db:"forked_from"`
 	ShortUrl   string         `json:"shortUrl" db:"short_url"`
+	FileName   string         `json:"fileName" db:"file_name"`
 
 	ViewCount int  `json:"viewCount" db:"view_count"`
 	IsPublic  bool `json:"isPublic" db:"is_public"`

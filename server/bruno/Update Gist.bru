@@ -1,17 +1,18 @@
 meta {
   name: Update Gist
   type: http
-  seq: 7
+  seq: 9
 }
 
 put {
-  url: {{BaseUrl}}/gists/01J7DS1M416JJGJQQGQSC68WN2
+  url: {{BaseUrl}}/gists/01JN98EZVQ1S2JRC81XWYX05KG
   body: multipartForm
   auth: none
 }
 
 body:multipart-form {
-  gist_title: FossHack
-  custom_url: FossieHackie
+  gist_title: Avinash
   is_public: true
+  file: @file(/Users/harshnpatel/Downloads/github-recovery-codes.txt)
+  ~custom_url: 
 }

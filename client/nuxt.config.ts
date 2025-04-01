@@ -9,15 +9,29 @@ export default defineNuxtConfig({
     'pinia-plugin-persistedstate/nuxt',
     '@vueuse/nuxt',
     '@vueuse/motion/nuxt',
+    'nuxt-time',
   ],
 
   ssr: false,
 
   imports: {
-    dirs: ['./layouts', './components', './pages', './store', './utils'],
+      dirs: [
+        './store',
+        './components',
+        './components/ui',
+        './components/home',
+        './components/dashboard',
+      ],
+    },
+  devtools: {
+    enabled: false,
+
+    timeline: {
+      enabled: true,
+    },
   },
 
-  devtools: { enabled: true },
+  css:['~/assets/css/onedark.css'],
 
   srcDir: 'app',
   serverDir: 'nuxt-server',
@@ -31,4 +45,12 @@ export default defineNuxtConfig({
       },
     },
   },
+
+  components: [
+      {
+        path: '~/components',
+        pathPrefix: false,
+      },
+    ],
+
 })

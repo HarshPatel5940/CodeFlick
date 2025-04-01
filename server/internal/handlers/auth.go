@@ -78,6 +78,7 @@ func (ah *AuthHandler) GoogleOauthLogin(c echo.Context) error {
 		c.SetRequest(c.Request().WithContext(ctx))
 
 		gothic.BeginAuthHandler(c.Response(), c.Request())
+		return nil
 	}
 
 	if redirectParam == "self" {
@@ -172,7 +173,7 @@ func (ah *AuthHandler) GoogleOauthCallback(c echo.Context) error {
 		redirectParam = c.QueryParam("r")
 	}
 
-	Tsess.Values = make(map[interface{}]interface{})
+	Tsess.Values = make(map[any]any)
 	delete(Tsess.Values, "oauth_redirect")
 	Tsess.Options = &sessions.Options{
 		MaxAge: -1,
@@ -213,33 +214,7 @@ func (ah *AuthHandler) GetSessionDetails(c echo.Context) error {
 }
 
 func (ah *AuthHandler) Logout(c echo.Context) error {
-	// sess, err := session.Get("session", c)
-	// if err != nil {
-	// 	return echo.NewHTTPError(http.StatusUnauthorized, map[string]any{
-	// 		"success": false,
-	// 		"message": "Failed to get session!",
-	// 	})
-	// }
-
-	// sess.Options = &sessions.Options{
-	// 	Path:     "/",
-	// 	Secure:   true,
-	// 	MaxAge:   -1,
-	// 	HttpOnly: true,
-	// }
-
-	// sess.Values = make(map[interface{}]interface{})
-
-	// if err := sess.Save(c.Request(), c.Response()); err != nil {
-	// 	return echo.NewHTTPError(http.StatusInternalServerError, map[string]any{
-	// 		"success": false,
-	// 		"message": "Failed to save session!",
-	// 	})
-	// }
-
-	// gothic.
-
-	if err := gothic.Logout(c.Response(),c.Request()); err != nil {
+	if err := gothic.Logout(c.Response(), c.Request()); err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, map[string]any{
 			"success": false,
 			"message": "Error during logout!",

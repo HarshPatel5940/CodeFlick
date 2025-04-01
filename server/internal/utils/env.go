@@ -10,6 +10,7 @@ import (
 
 var env = map[string]interface{}{
 	"PORT":                    "8080",
+	"DEBUG":                   "true",
 	"ENV":                     "development",
 	"CLIENT_URL":              "http://localhost:3000",
 	"DATABASE_URL":            nil,

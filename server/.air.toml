@@ -26,14 +26,13 @@ send_interrupt = false
 stop_on_error = false
 
 [color]
-app = ""
+app = "white"
 build = "yellow"
 main = "magenta"
 runner = "green"
 watcher = "cyan"
 
 [log]
-main_only = false
 time = true
 
 [misc]

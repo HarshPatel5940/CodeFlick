@@ -1,21 +1,22 @@
-import { defineStore } from "pinia";
+import { defineStore } from 'pinia'
 
-export const useTheme = defineStore({
-  id: "theme",
+export const useTheme = defineStore('theme', {
   state: () => ({ isDarkMode: true }),
+  getters: {
+    themeBool(state) {
+      return state.isDarkMode
+    },
+    theme(state) {
+      return state.isDarkMode ? 'dark' : 'light'
+    },
+  },
   actions: {
-    getThemeBool() {
-      return this.isDarkMode;
-    },
-    getTheme() {
-      return this.isDarkMode ? "dark" : "light";
-    },
     toggleTheme() {
-      this.isDarkMode = !this.isDarkMode;
-      return this.isDarkMode ? "dark" : "light";
+      this.isDarkMode = !this.isDarkMode
+      return this.isDarkMode ? 'dark' : 'light'
     },
   },
   persist: {
     storage: piniaPluginPersistedstate.cookies(),
   },
-});
+})

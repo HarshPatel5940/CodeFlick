@@ -3,7 +3,6 @@ package handlers
 import (
 	"bytes"
 	"context"
-	"encoding/json"
 	"fmt"
 	"io"
 	"log/slog"
@@ -47,6 +46,21 @@ func (gh *GistHandler) UploadGist(c echo.Context) error {
 		})
 	}
 
+	fileNameReq := c.FormValue("file_name")
+	if fileNameReq == "" {
+		fileNameReq = file.Filename
+	}
+
+	Gist.FileName = fmt.Sprintf("%s/%s-%s", Gist.UserID, Gist.FileID, fileNameReq)
+	if len(Gist.FileName) > 100 {
+		return echo.NewHTTPError(http.StatusBadRequest, map[string]any{
+			"success": false,
+			"message": "File name is too long! Max length is 100 characters.",
+		})
+	}
+
+	Placeholder := fmt.Sprintf("%s-%s", Gist.FileName, Gist.FileID)
+
 	if !strings.Contains(file.Header.Get("Content-Type"), "text") {
 		return echo.NewHTTPError(http.StatusBadRequest, map[string]any{
 			"success": false,
@@ -56,12 +70,26 @@ func (gh *GistHandler) UploadGist(c echo.Context) error {
 
 	Gist.GistTitle = c.FormValue("gist_title")
 	if Gist.GistTitle == "" {
-		Gist.GistTitle = fmt.Sprintf("%s-%s", file.Filename, Gist.FileID)
+		Gist.GistTitle = Placeholder
+	}
+
+	if len(Gist.GistTitle) < 5 {
+		return echo.NewHTTPError(http.StatusBadRequest, map[string]any{
+			"success": false,
+			"message": "Gist Title must be atleast 5 characters long!",
+		})
 	}
 
 	Gist.ShortUrl = c.FormValue("custom_url")
 	if Gist.ShortUrl == "" {
-		Gist.ShortUrl = fmt.Sprintf("%s-%s", file.Filename, Gist.FileID)
+		Gist.ShortUrl = Placeholder
+	}
+
+	if len(Gist.ShortUrl) < 5 {
+		return echo.NewHTTPError(http.StatusBadRequest, map[string]any{
+			"success": false,
+			"message": "Short URL must be atleast 5 characters long!",
+		})
 	}
 
 	Gist.IsPublic, err = strconv.ParseBool(c.FormValue("is_public"))
@@ -83,10 +111,8 @@ func (gh *GistHandler) UploadGist(c echo.Context) error {
 		}
 	}()
 
-	fileName := fmt.Sprintf("%s/%s", Gist.UserID, Gist.FileID)
-
-	fileInfo, err := gh.minio.PutObject(context.Background(),
-		fileName,
+	_, err = gh.minio.PutObject(context.Background(),
+		Gist.FileName,
 		src,
 		file.Size,
 		minio.PutObjectOptions{ContentType: file.Header.Get("Content-Type"), UserMetadata: map[string]string{"fileId": Gist.FileID}})
@@ -98,10 +124,10 @@ func (gh *GistHandler) UploadGist(c echo.Context) error {
 		})
 	}
 
-	err = gh.gistDB.InsertGist(context.Background(), Gist)
+	_, err = gh.gistDB.InsertGist(context.Background(), Gist)
 	if err != nil {
 		if strings.Contains(err.Error(), "duplicate key value violates unique constraint") {
-			if err := gh.minio.RemoveObject(context.Background(), fileName, minio.RemoveObjectOptions{}); err != nil {
+			if err := gh.minio.RemoveObject(context.Background(), Gist.FileName, minio.RemoveObjectOptions{}); err != nil {
 				return echo.NewHTTPError(http.StatusInternalServerError, map[string]any{
 					"success": false,
 					"message": "Failed to remove the file from minio!",
@@ -125,8 +151,6 @@ func (gh *GistHandler) UploadGist(c echo.Context) error {
 	return c.JSON(http.StatusCreated, map[string]any{
 		"success":    true,
 		"message":    "Gist uploaded successfully!",
-		"key":        fileInfo.Key,
-		"fileSize":   fileInfo.Size,
 		"file_id":    Gist.FileID,
 		"short_url":  Gist.ShortUrl,
 		"title":      Gist.GistTitle,
@@ -134,42 +158,11 @@ func (gh *GistHandler) UploadGist(c echo.Context) error {
 	})
 }
 
-func (gh *GistHandler) ListBuckets(c echo.Context) error {
-	var User models.User = c.Get("UserSessionDetails").(models.User)
-	if !User.IsAdmin {
-		return echo.NewHTTPError(http.StatusUnauthorized, map[string]any{
-			"success": false,
-			"message": "You are not authorized to view this page!",
-		})
-	}
-
-	list, err := gh.minio.ListBuckets(context.Background())
-	if err != nil {
-		resp := minio.ToErrorResponse(err)
-
-		if resp.Code != "" {
-			return echo.NewHTTPError(http.StatusInternalServerError, map[string]any{
-				"success": false,
-				"Message": resp.Message,
-				"Details": resp,
-			})
-		}
-		return echo.NewHTTPError(http.StatusInternalServerError, map[string]any{
-			"success": false,
-			"Message": err.Error(),
-		})
-	}
-
-	return c.JSON(http.StatusOK, map[string]any{
-		"success": true,
-		"message": list,
-	})
-}
-
 func (gh *GistHandler) GetAllGists(c echo.Context) error {
 	var User models.User = c.Get("UserSessionDetails").(models.User)
+	fetchPublic := c.QueryParam("fetchPublic")
 
-	gists, err := gh.gistDB.GetGistsByUserID(context.Background(), User.ID)
+	gists, err := gh.gistDB.GetGistsByUserID(context.Background(), User.ID, fetchPublic)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, map[string]any{
 			"success": false,
@@ -186,86 +179,75 @@ func (gh *GistHandler) GetAllGists(c echo.Context) error {
 }
 
 func (gh *GistHandler) GetGist(c echo.Context) error {
-	GistUrl := c.Param("id")
-	GistID := c.QueryParam("gid")
-	if GistUrl == "" {
-		return echo.NewHTTPError(http.StatusNotFound, map[string]any{
-			"success": false,
-			"message": "Gist URL is required",
-		})
-	}
+    GistUrl := c.Param("id")
+    GistID := c.QueryParam("gid")
+    if GistUrl == "" {
+        return echo.NewHTTPError(http.StatusNotFound, map[string]any{
+            "success": false,
+            "message": "Gist URL is required",
+        })
+    }
 
-	Gist, err := gh.gistDB.GetGistByShortURL(context.Background(), GistUrl)
-	if err != nil {
-		return echo.NewHTTPError(http.StatusNotFound, map[string]any{
-			"success": false,
-			"message": "Gist not found",
-		})
-	}
+    Gist, err := gh.gistDB.GetGistByShortURL(context.Background(), GistUrl)
+    if err != nil {
+        return echo.NewHTTPError(http.StatusNotFound, map[string]any{
+            "success": false,
+            "message": "Gist not found",
+        })
+    }
 
-	if Gist.IsDeleted {
-		return echo.NewHTTPError(http.StatusNotFound, map[string]any{
-			"success": false,
-			"message": "Gist has been deleted",
-		})
-	}
+    if Gist.IsDeleted {
+        return echo.NewHTTPError(http.StatusNotFound, map[string]any{
+            "success": false,
+            "message": "Gist has been deleted",
+        })
+    }
 
-	if !Gist.IsPublic && Gist.FileID != GistID {
-		return echo.NewHTTPError(http.StatusUnauthorized, map[string]any{
-			"success": false,
-			"message": "Unauthorized access to private gist",
-		})
-	}
+    if !Gist.IsPublic && Gist.FileID != GistID {
+        return echo.NewHTTPError(http.StatusUnauthorized, map[string]any{
+            "success": false,
+            "message": "Unauthorized access to private gist",
+        })
+    }
 
-	fileName := fmt.Sprintf("%s/%s", Gist.UserID, Gist.FileID)
-	gistData, err := gh.minio.GetObject(context.Background(), fileName, minio.GetObjectOptions{})
-	if err != nil {
-		return handleMinioError(err)
-	}
-	go func() {
-		if err := gistData.Close(); err != nil {
-			slog.AnyValue(fmt.Errorf("error while closing the file: %w", err))
-		}
-	}()
+    gistData, err := gh.minio.GetObject(context.Background(), Gist.FileName, minio.GetObjectOptions{})
+    if err != nil {
+        c.Logger().Error(err, gistData)
+        return handleMinioError(err)
+    }
+    defer func() {
+        if err := gistData.Close(); err != nil {
+            slog.AnyValue(fmt.Errorf("error while closing the file: %w", err))
+        }
+    }()
 
-	gistStat, err := gistData.Stat()
-	if err != nil {
-		return handleMinioError(err)
-	}
+    metadata := map[string]interface{}{
+        "userID":     Gist.UserID,
+        "fileID":     Gist.FileID,
+        "gistTitle":  Gist.GistTitle,
+        "shortUrl":   Gist.ShortUrl,
+        "viewCount":  Gist.ViewCount,
+        "isPublic":   Gist.IsPublic,
+        "createdAt":  Gist.CreatedAt,
+        "updatedAt":  Gist.UpdatedAt,
+        "forkedFrom": Gist.ForkedFrom,
+    }
 
-	metadata := map[string]interface{}{
-		"UserID":     Gist.UserID,
-		"ForkedFrom": Gist.ForkedFrom,
-		"GistTitle":  Gist.GistTitle,
-		"ShortUrl":   Gist.ShortUrl,
-		"ViewCount":  Gist.ViewCount,
-		"IsPublic":   Gist.IsPublic,
-		"CreatedAt":  Gist.CreatedAt,
-		"UpdatedAt":  Gist.UpdatedAt,
-	}
+    buffer := &bytes.Buffer{}
+    if _, err := io.Copy(buffer, gistData); err != nil {
+        c.Logger().Error(err, Gist)
+        return echo.NewHTTPError(http.StatusInternalServerError, map[string]any{
+            "success": false,
+            "message": "Failed to read file content",
+        })
+    }
 
-	metadataJSON, err := json.Marshal(metadata)
-	if err != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, map[string]any{
-			"success": false,
-			"message": "Failed to process metadata",
-		})
-	}
-
-	c.Response().Header().Set("Content-Type", "application/octet-stream")
-	c.Response().Header().Set("X-Metadata-Length", strconv.Itoa(len(metadataJSON)))
-	c.Response().Header().Set("X-Metadata", string(metadataJSON))
-	c.Response().Header().Set("Content-Length", strconv.FormatInt(gistStat.Size, 10))
-
-	buffer := &bytes.Buffer{}
-	if _, err := io.Copy(buffer, gistData); err != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, map[string]any{
-			"success": false,
-			"message": "Failed to read file content",
-		})
-	}
-
-	return c.Blob(http.StatusOK, "application/octet-stream", buffer.Bytes())
+    return c.JSON(http.StatusOK, map[string]any{
+        "success":  true,
+        "message":  "Gist fetched successfully",
+        "content":  buffer.String(),
+        "metadata": metadata,
+    })
 }
 
 func (gh *GistHandler) UpdateGist(c echo.Context) error {
@@ -682,6 +664,26 @@ func (gh *GistHandler) ListAllFiles(c echo.Context) error {
 		"success": true,
 		"message": "Listed files successfully!",
 		"data":    files,
+	})
+}
+
+func (gh *GistHandler) ListBuckets(c echo.Context) error {
+	var User models.User = c.Get("UserSessionDetails").(models.User)
+	if !User.IsAdmin {
+		return echo.NewHTTPError(http.StatusUnauthorized, map[string]any{
+			"success": false,
+			"message": "You are not authorized to view this page!",
+		})
+	}
+
+	list, err := gh.minio.ListBuckets(context.Background())
+	if err != nil {
+		return handleMinioError(err)
+	}
+
+	return c.JSON(http.StatusOK, map[string]any{
+		"success": true,
+		"message": list,
 	})
 }
 
