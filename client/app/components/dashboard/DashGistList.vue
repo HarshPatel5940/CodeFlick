@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import type { Gist } from '~/types/gists'
 import { onMounted, ref, watch } from 'vue'
 import { useGists } from '~/composables/useGists'
+import type { Gist } from '~/types/gists'
 
 const props = defineProps({
   fetchUrl: {
@@ -30,9 +30,45 @@ async function loadGists() {
 }
 
 function addGist(newGist: Gist) {
-  if (!props.fetchUrl.includes('fetchPublic')) {
+  if (!props.fetchUrl.includes('fetchPublic') || (props.fetchUrl.includes('fetchPublic') && newGist.isPublic)) {
     gistsList.value = [newGist, ...gistsList.value]
     originalGists.value = [newGist, ...originalGists.value]
+  }
+}
+
+function updateGist(updatedGist: Gist) {
+  if (!props.fetchUrl.includes('fetchPublic')) {
+    const index = gistsList.value.findIndex(g => g.fileId === updatedGist.fileId)
+    if (index !== -1) {
+      gistsList.value[index] = updatedGist
+
+      const originalIndex = originalGists.value.findIndex(g => g.fileId === updatedGist.fileId)
+      if (originalIndex !== -1) {
+        originalGists.value[originalIndex] = updatedGist
+      }
+    }
+  }
+
+  else if (props.fetchUrl.includes('fetchPublic')) {
+    const index = gistsList.value.findIndex(g => g.fileId === updatedGist.fileId)
+
+    if (index !== -1 && !updatedGist.isPublic) {
+      gistsList.value = gistsList.value.filter(g => g.fileId !== updatedGist.fileId)
+      originalGists.value = originalGists.value.filter(g => g.fileId !== updatedGist.fileId)
+    }
+
+    else if (index !== -1 && updatedGist.isPublic) {
+      gistsList.value[index] = updatedGist
+
+      const originalIndex = originalGists.value.findIndex(g => g.fileId === updatedGist.fileId)
+      if (originalIndex !== -1) {
+        originalGists.value[originalIndex] = updatedGist
+      }
+    }
+
+    else if (index === -1 && updatedGist.isPublic) {
+      loadGists()
+    }
   }
 }
 
@@ -48,7 +84,7 @@ function searchGists(query: string) {
   )
 }
 
-defineExpose({ loadGists, addGist, searchGists })
+defineExpose({ loadGists, addGist, updateGist, searchGists })
 
 onMounted(loadGists)
 

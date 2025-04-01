@@ -33,6 +33,7 @@ func CreateMinioClient(cm *RetryManager) *MinioHandler {
 				utils.GetEnv("MINIO_ACCESS_SECRET"),
 				""),
 			Secure: SSLPolicy,
+			Region: "",
 		})
 
 		if err == nil {
@@ -44,18 +45,20 @@ func CreateMinioClient(cm *RetryManager) *MinioHandler {
 		log.Panic("Error connecting to Minio", err)
 	}
 
+	go InitMinioClient(client)
+
 	return &MinioHandler{client: client, cm: cm}
 }
 
-func (m *MinioHandler) InitMinioClient() {
-	bucketExists, err := m.client.BucketExists(context.Background(), MinioBucketName)
+func InitMinioClient(client *minio.Client) {
+	bucketExists, err := client.BucketExists(context.Background(), MinioBucketName)
 	if err != nil {
 		slog.Error("Error while checking if bucket exists")
 		log.Panic(err)
 	}
 
 	if !bucketExists {
-		err = m.client.MakeBucket(
+		err = client.MakeBucket(
 			context.Background(),
 			MinioBucketName,
 			minio.MakeBucketOptions{
@@ -73,7 +76,7 @@ func (m *MinioHandler) InitMinioClient() {
 	}
 
 	if bucketExists {
-		err = m.client.SetBucketPolicy(
+		err = client.SetBucketPolicy(
 			context.Background(),
 			MinioBucketName,
 			utils.GetBucketPolicy(MinioBucketName),

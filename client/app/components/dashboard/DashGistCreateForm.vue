@@ -34,6 +34,7 @@ async function createGist(gistPublic: boolean) {
     multiPartData.append('gist_title', gistTitle.value)
     multiPartData.append('is_public', String(gistPublic))
     customURL.value && multiPartData.append('custom_url', customURL.value)
+    gistFileName.value && multiPartData.append('file_name', gistFileName.value)
 
     const file = new File([gistContent.value], gistFileName.value, { type: 'text/plain' })
     multiPartData.append('file', file)
@@ -121,6 +122,13 @@ async function handleCreateGist(gistPublic: boolean) {
     })
     return
   }
+
+  toast.add({
+    title: props.isEdit ? 'Gist Updated!' : 'Gist Created!',
+    color: 'green',
+    icon: 'heroicons:check-circle',
+    timeout: 2000,
+  })
 
   if (!bodyData.data.updatedAt) {
     bodyData.data.updatedAt = new Date().toISOString()

@@ -15,7 +15,7 @@ const (
 	getGistsByUserID         = `SELECT * FROM gists WHERE user_id = $1;`
 	getGistsByUserIDOrPublic = `SELECT * FROM gists WHERE user_id = $1 OR is_public = true ORDER BY created_at DESC;`
 	getPublicGists           = `SELECT * FROM gists WHERE is_public = true ORDER BY created_at DESC;`
-	insertGist               = `INSERT INTO gists (user_id, file_id, gist_title, short_url, is_public) VALUES ($1, $2, $3, $4, $5);`
+	insertGist               = `INSERT INTO gists (user_id, file_id, gist_title, file_name, short_url, is_public) VALUES ($1, $2, $3, $4, $5, $6);`
 	updateGist               = `UPDATE gists SET gist_title = $3, short_url = $4, is_public = $5, updated_at = $6 WHERE file_id = $1 and user_id=$2 RETURNING file_id;`
 	deleteGist               = `UPDATE gists SET is_deleted = true, updated_at = $3 WHERE file_id = $1 AND user_id=$2 RETURNING file_id;`
 )
@@ -60,7 +60,7 @@ func (g *GistDB) GetGistsByUserID(ctx context.Context, userID string, fetchPubli
 }
 
 func (g *GistDB) InsertGist(ctx context.Context, gist models.Gist) (sql.Result, error) {
-	res, err := g.db.ExecContext(ctx, insertGist, gist.UserID, gist.FileID, gist.GistTitle, gist.ShortUrl, gist.IsPublic)
+	res, err := g.db.ExecContext(ctx, insertGist, gist.UserID, gist.FileID, gist.GistTitle, gist.FileName, gist.ShortUrl, gist.IsPublic)
 	return res, err
 }
 

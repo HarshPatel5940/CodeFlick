@@ -31,6 +31,20 @@ function handleGistCreated(newGist) {
   if (myGistsRef.value && typeof myGistsRef.value.addGist === 'function') {
     myGistsRef.value.addGist(newGist)
   }
+
+  if (newGist.isPublic && publicGistsRef.value && typeof publicGistsRef.value.loadGists === 'function') {
+    publicGistsRef.value.loadGists()
+  }
+}
+
+function handleGistUpdated(updatedGist) {
+  if (myGistsRef.value && typeof myGistsRef.value.updateGist === 'function') {
+    myGistsRef.value.updateGist(updatedGist)
+  }
+
+  if (publicGistsRef.value && typeof publicGistsRef.value.loadGists === 'function') {
+    publicGistsRef.value.loadGists()
+  }
 }
 
 function handleSearch() {
@@ -48,7 +62,10 @@ function handleSearch() {
 
     <div v-if="isMobile" class="container mx-auto px-4 flex flex-col">
       <div class="w-full mb-6">
-        <DashGistCreateForm @gist-created="handleGistCreated" />
+        <DashGistCreateForm
+          @gist-created="handleGistCreated"
+          @gist-updated="handleGistUpdated"
+        />
       </div>
 
       <div class="mb-4">
@@ -97,7 +114,10 @@ function handleSearch() {
     <div v-else class="container mx-auto px-4">
       <div class="grid grid-cols-12 gap-6">
         <div class="col-span-12 lg:col-span-7 xl:col-span-8">
-          <DashGistCreateForm @gist-created="handleGistCreated" />
+          <DashGistCreateForm
+            @gist-created="handleGistCreated"
+            @gist-updated="handleGistUpdated"
+          />
 
           <div class="mt-8">
             <h2 class="text-xl font-mono tracking-wider mb-4 pl-2 border-l-4 border-green-500 dark:border-green-400">

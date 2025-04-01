@@ -6,6 +6,7 @@ CREATE TABLE IF NOT EXISTS gists (
     gist_title text not null,
     forked_from text references users(id),
     short_url text not null UNIQUE,
+    file_name text not null,
     view_count numeric not null default 0,
     is_public boolean not null default true,
     is_deleted boolean not null default false,

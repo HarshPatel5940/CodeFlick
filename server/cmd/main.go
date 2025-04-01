@@ -59,6 +59,7 @@ func NewApp(
 func (a *App) Start(ctx context.Context) error {
 	routes.StartTime = time.Now()
 	address := utils.GetServerAddress()
+
 	go func() {
 		if err := a.Echo.Start(address); err != nil {
 			log.Printf("Error starting server: %v", err)

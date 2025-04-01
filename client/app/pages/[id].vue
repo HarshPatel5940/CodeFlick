@@ -1,30 +1,105 @@
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
 import type { Gist } from '~/types/gists'
+import { onMounted, ref } from 'vue'
 
 const route = useRoute()
 const BE = import.meta.env.VITE_BE_URL
 const gistId = route.params.id
-const queryGid = route.query.gid
-const toast = useToast()
+// const queryGid = route.query.gid
 
-const gist = ref<Gist | null>(null)
+const profile = useProfile()
+
+const gist = ref<Gist>({
+  fileId: '',
+  userId: '',
+
+  gistTitle: '',
+  forkedFrom: '',
+  shortUrl: '',
+
+  viewCount: 0,
+  isPublic: false,
+  isDeleted: false,
+
+  auditLog: [],
+
+  createdAt: '',
+  updatedAt: '',
+})
+
 const gistContent = ref('')
 const isLoading = ref(true)
 const error = ref<string | null>(null)
 
+const hasChanges = ref(false)
+const showNotification = ref(false)
+const notificationMessage = ref('')
+const notificationColor = ref('green')
+
 async function handleOnClickCopy() {
   try {
     await navigator.clipboard.writeText(window.location.href)
-    toast.add({
-      title: 'Link copied to clipboard!',
-      color: 'green',
-      timeout: 3000,
-      icon: 'heroicons:clipboard-check',
-    })
+    notificationMessage.value = 'Link copied to clipboard!'
+    showNotification.value = true
+    setTimeout(() => {
+      showNotification.value = false
+    }, 3000)
   }
   catch (err) {
     console.error('Failed to copy link:', err)
+  }
+}
+
+async function handleCodeUpdate(newCode: string) {
+  if (newCode !== gistContent.value) {
+    hasChanges.value = true
+    gistContent.value = newCode
+  }
+}
+
+async function saveChanges() {
+  if (!hasChanges.value)
+    return
+  isLoading.value = true
+
+  try {
+    const endpoint = `${BE}/api/gists/${gist.value.fileId}`
+
+    const formData = new FormData()
+    formData.append('file', gistContent.value)
+
+    const response = await fetch(endpoint, {
+      method: 'PUT',
+      credentials: 'include',
+      body: formData,
+    })
+
+    if (!response.ok) {
+      throw new Error(`Failed to update gist: ${response.statusText}`)
+    }
+
+    const data = await response.json()
+
+    if (!data.success) {
+      throw new Error(data.message || 'Failed to save changes')
+    }
+
+    hasChanges.value = false
+    notificationMessage.value = 'Changes saved successfully!'
+    notificationColor.value = 'green'
+    showNotification.value = true
+  }
+  catch (err) {
+    notificationMessage.value = err instanceof Error ? err.message : 'Failed to save changes'
+    notificationColor.value = 'red'
+    showNotification.value = true
+    console.error('Error saving gist:', err)
+  }
+  finally {
+    isLoading.value = false
+    setTimeout(() => {
+      showNotification.value = false
+    }, 3000)
   }
 }
 
@@ -33,8 +108,7 @@ async function fetchGistDetails(retry = false) {
   error.value = null
 
   try {
-    const id = queryGid || gistId
-    const endpoint = `${BE}/api/gists/${id}`
+    const endpoint = `${BE}/api/gists/${gistId}`
 
     const response = await fetch(endpoint, {
       method: 'GET',
@@ -51,14 +125,31 @@ async function fetchGistDetails(retry = false) {
       throw new Error(data.message || 'Failed to load gist')
     }
 
-    gist.value = data.metadata
+    gist.value = {
+      fileId: data.metadata.fileID,
+      userId: data.metadata.userID,
+      gistTitle: data.metadata.gistTitle,
+      forkedFrom: data.metadata.forkedFrom,
+      shortUrl: data.metadata.shortUrl,
+      viewCount: data.metadata.viewCount,
+      isPublic: data.metadata.isPublic,
+      isDeleted: data.metadata.isDeleted,
+      auditLog: data.metadata.auditLog,
+      createdAt: data.metadata.createdAt,
+      updatedAt: data.metadata.updatedAt,
+    }
+    if (!gist.value) {
+      throw new Error('Failed to load gist')
+    }
     gistContent.value = data.content
 
     if (gist.value?.gistTitle) {
       useHead({
-        title: `${gist.value.gistTitle} | CodeFlick`,
+        title: `${gist.value.gistTitle}`,
       })
     }
+
+    console.log('Profile:', profile.data.UserID, gist.value)
   }
   catch (err) {
     if (!retry) {
@@ -80,6 +171,14 @@ onMounted(() => {
 
 <template>
   <main class="w-screen min-h-screen dark:bg-mybg bg-myLightBg">
+    <UNotification
+      v-if="showNotification"
+      :timeout="3000"
+      :description="notificationMessage"
+      class="dark:text-white"
+      :color="notificationColor"
+      :pause-timeout-on-hover="false"
+    />
     <div class="flex flex-row pt-4 md:pt-5 justify-center">
       <Navbar />
     </div>
@@ -165,9 +264,21 @@ onMounted(() => {
           :filename="gist.fileId"
           :code="gistContent"
           lang="go"
-          :show-edit-button="true"
+          :show-edit-button="gist.userId === profile.data.UserID"
           :show-copy-button="true"
+          @update:code="handleCodeUpdate"
         />
+      </div>
+
+      <div v-if="hasChanges" class="mt-4 flex justify-end">
+        <UButton
+          color="primary"
+          :loading="isLoading"
+          icon="heroicons:check"
+          @click="saveChanges"
+        >
+          Save Changes
+        </UButton>
       </div>
     </div>
   </main>

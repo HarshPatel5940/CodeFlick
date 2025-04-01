@@ -63,7 +63,6 @@ docker-delete:
 	@echo "Deleting Docker containers..."
 	@docker compose down --volumes --networks --remove-orphans
 
-
 build-server:
 	@echo "Building application..."
 	@go build -o main cmd/main.go

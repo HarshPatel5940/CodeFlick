@@ -23,6 +23,7 @@ func root(c echo.Context) error {
 			"twitter": "https://twitter.com/HarshPatel5940",
 			"project": "https://github.com/HarshPatel5940/CodeFlick",
 		},
+		"uptime": time.Since(StartTime).String(),
 	})
 }
 

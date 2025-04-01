@@ -4,12 +4,12 @@ import (
 	"context"
 	"log"
 	"log/slog"
-	"os/exec"
 	"time"
 
 	"github.com/HarshPatel5940/CodeFlick/internal/utils"
 	"github.com/jmoiron/sqlx"
 	_ "github.com/lib/pq"
+	"github.com/pressly/goose/v3"
 )
 
 func CreatePostgresConnection(cm *RetryManager) *sqlx.DB {
@@ -35,19 +35,21 @@ func CreatePostgresConnection(cm *RetryManager) *sqlx.DB {
 	db.SetMaxIdleConns(5)
 	db.SetConnMaxLifetime(5 * time.Minute)
 
-	go InitPostgresDB()
+	go InitPostgresDB(db)
 
 	return db
 }
 
-func InitPostgresDB() {
-	cmd := exec.Command("make", "migrate-status")
-	output, err := cmd.CombinedOutput()
+func InitPostgresDB(db *sqlx.DB) {
+	if err := goose.SetDialect("postgres"); err != nil {
+		slog.Error("Failed to set dialect", "error", err)
+		return
+	}
+	version, err := goose.GetDBVersion(db.DB)
 	if err != nil {
-		log.Panic("Error executing migration command", "error", err)
+		slog.Error("Failed to get database version", "error", err)
+		return
 	}
 
-	if len(output) > 0 {
-		slog.Info(string(output))
-	}
+	slog.Info("Current migration version", "version", version)
 }
