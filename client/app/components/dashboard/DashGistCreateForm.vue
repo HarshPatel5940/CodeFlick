@@ -137,18 +137,23 @@ async function handleCreateGist(gistPublic: boolean) {
     bodyData.data.viewCount = 0
   }
 
+  emit(props.isEdit ? 'gist-updated' : 'gist-created', bodyData.data)
+
   if (!props.isEdit) {
     gistTitle.value = ''
     gistFileName.value = ''
     gistContent.value = ''
     customURL.value = ''
-  }
 
-  emit(props.isEdit ? 'gist-updated' : 'gist-created', bodyData.data)
+    navigateTo(gistPublic
+      ? `/${bodyData.data.shortUrl}`
+      : `/${bodyData.data.shortUrl}?gid=${bodyData.data.fileId}`)
+  }
 }
 
-function handleFileUpload(event): void {
-  const files = event.target.files
+function handleFileUpload(event: Event): void {
+  const target = event.target as HTMLInputElement
+  const files = target.files
 
   if (files && files.length > 0) {
     const file = files[0]

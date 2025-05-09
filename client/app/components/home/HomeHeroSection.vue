@@ -63,8 +63,8 @@ const sampleCode = ref(`package main
 
 import "fmt"
 
-// fib returns a function that returns
-// successive Fibonacci numbers.
+
+
 func fib() func() int {
     a, b := 0, 1
     return func() int {
@@ -75,7 +75,7 @@ func fib() func() int {
 
 func main() {
     f := fib()
-    // Function calls are evaluated left-to-right.
+    
     fmt.Println(f(), f(), f(), f(), f())
 }
 `)

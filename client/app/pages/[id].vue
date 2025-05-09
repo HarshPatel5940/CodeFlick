@@ -5,13 +5,15 @@ import { onMounted, ref } from 'vue'
 const route = useRoute()
 const BE = import.meta.env.VITE_BE_URL
 const gistId = route.params.id
-// const queryGid = route.query.gid
+const queryGid = route.query.gid as string
 
 const profile = useProfile()
+const toast = useToast()
 
 const gist = ref<Gist>({
   fileId: '',
   userId: '',
+  fileName: '',
 
   gistTitle: '',
   forkedFrom: '',
@@ -36,17 +38,141 @@ const showNotification = ref(false)
 const notificationMessage = ref('')
 const notificationColor = ref('green')
 
-async function handleOnClickCopy() {
-  try {
-    await navigator.clipboard.writeText(window.location.href)
-    notificationMessage.value = 'Link copied to clipboard!'
+const isEditUrlModalOpen = ref(false)
+const newCustomUrl = ref('')
+const newFileName = ref('')
+
+function openEditUrlModal() {
+  newCustomUrl.value = gist.value.shortUrl
+  isEditUrlModalOpen.value = true
+}
+
+async function updateCustomUrl() {
+  if (!newCustomUrl.value || newCustomUrl.value.trim() === '') {
+    notificationMessage.value = 'Custom URL cannot be empty'
+    notificationColor.value = 'red'
     showNotification.value = true
+    setTimeout(() => { showNotification.value = false }, 3000)
+    return
+  }
+
+  isLoading.value = true
+
+  try {
+    const endpoint = `${BE}/api/gists/update/${gist.value.fileId}`
+
+    const formData = new FormData()
+    formData.append('gist_title', gist.value.gistTitle)
+    formData.append('is_public', String(gist.value.isPublic))
+    formData.append('custom_url', newCustomUrl.value)
+
+    const file = new File([gistContent.value], gist.value.fileId, { type: 'text/plain' })
+    formData.append('file', file)
+
+    const response = await fetch(endpoint, {
+      method: 'PUT',
+      credentials: 'include',
+      body: formData,
+    })
+
+    if (!response.ok) {
+      throw new Error(`Failed to update URL: ${response.statusText}`)
+    }
+
+    const data = await response.json()
+
+    if (!data.success) {
+      throw new Error(data.message || 'Failed to update URL')
+    }
+
+    const oldShortUrl = gist.value.shortUrl
+    gist.value.shortUrl = newCustomUrl.value
+    isEditUrlModalOpen.value = false
+
+    notificationMessage.value = `Custom URL updated from ${oldShortUrl} to ${newCustomUrl.value}`
+    notificationColor.value = 'green'
+    showNotification.value = true
+  }
+  catch (err) {
+    notificationMessage.value = err instanceof Error ? err.message : 'Failed to update URL'
+    notificationColor.value = 'red'
+    showNotification.value = true
+    console.error('Error updating URL:', err)
+  }
+  finally {
+    isLoading.value = false
     setTimeout(() => {
       showNotification.value = false
     }, 3000)
   }
+}
+
+async function toggleVisibility() {
+  isLoading.value = true
+
+  try {
+    const endpoint = `${BE}/api/gists/update/${gist.value.fileId}`
+
+    const formData = new FormData()
+    formData.append('gist_title', gist.value.gistTitle)
+    formData.append('is_public', String(!gist.value.isPublic))
+
+    const response = await fetch(endpoint, {
+      method: 'PUT',
+      credentials: 'include',
+      body: formData,
+    })
+
+    if (!response.ok) {
+      throw new Error(`Failed to update visibility: ${response.statusText}`)
+    }
+
+    const data = await response.json()
+
+    if (!data.success) {
+      throw new Error(data.message || 'Failed to update visibility')
+    }
+
+    gist.value.isPublic = !gist.value.isPublic
+
+    notificationMessage.value = `Gist is now ${gist.value.isPublic ? 'public' : 'private'}`
+    notificationColor.value = 'green'
+    showNotification.value = true
+  }
+  catch (err) {
+    notificationMessage.value = err instanceof Error ? err.message : 'Failed to update visibility'
+    notificationColor.value = 'red'
+    showNotification.value = true
+    console.error('Error updating visibility:', err)
+  }
+  finally {
+    isLoading.value = false
+    setTimeout(() => {
+      showNotification.value = false
+    }, 3000)
+  }
+}
+
+async function handleOnClickCopy() {
+  try {
+    await navigator.clipboard.writeText(window.location.href)
+    toast.add({
+      title: 'Link Copied!',
+      description: 'Link copied to clipboard',
+      color: 'green',
+      icon: 'heroicons:check-circle',
+      timeout: 2000,
+    })
+  }
   catch (err) {
     console.error('Failed to copy link:', err)
+    toast.add({
+      title: 'Copy Failed',
+      description: 'Failed to copy link to clipboard',
+      color: 'red',
+      icon: 'heroicons:exclamation-circle',
+      timeout: 2000,
+    })
   }
 }
 
@@ -66,7 +192,8 @@ async function saveChanges() {
     const endpoint = `${BE}/api/gists/${gist.value.fileId}`
 
     const formData = new FormData()
-    formData.append('file', gistContent.value)
+    const file = new File([gistContent.value], gist.value.fileId, { type: 'text/plain' })
+    formData.append('file', file)
 
     const response = await fetch(endpoint, {
       method: 'PUT',
@@ -108,7 +235,9 @@ async function fetchGistDetails(retry = false) {
   error.value = null
 
   try {
-    const endpoint = `${BE}/api/gists/${gistId}`
+    const endpoint = queryGid
+      ? `${BE}/api/gists/${gistId}?gid=${queryGid}`
+      : `${BE}/api/gists/${gistId}`
 
     const response = await fetch(endpoint, {
       method: 'GET',
@@ -127,6 +256,7 @@ async function fetchGistDetails(retry = false) {
 
     gist.value = {
       fileId: data.metadata.fileID,
+      fileName: data.metadata.fileName,
       userId: data.metadata.userID,
       gistTitle: data.metadata.gistTitle,
       forkedFrom: data.metadata.forkedFrom,
@@ -171,14 +301,39 @@ onMounted(() => {
 
 <template>
   <main class="w-screen min-h-screen dark:bg-mybg bg-myLightBg">
-    <UNotification
-      v-if="showNotification"
-      :timeout="3000"
-      :description="notificationMessage"
-      class="dark:text-white"
-      :color="notificationColor"
-      :pause-timeout-on-hover="false"
-    />
+    <UModal v-model="isEditUrlModalOpen" :ui="{ width: 'sm:max-w-md' }">
+      <div class="p-4">
+        <h2 class="text-lg font-bold mb-4">
+          Edit Custom URL
+        </h2>
+        <div class="mb-4">
+          <UInput
+            v-model="newCustomUrl"
+            label="Custom URL"
+            placeholder="Enter custom URL"
+            class="w-full"
+          />
+        </div>
+        <div class="flex justify-end gap-2">
+          <UButton
+            variant="ghost"
+            color="gray"
+            @click="isEditUrlModalOpen = false"
+          >
+            Cancel
+          </UButton>
+          <UButton
+            variant="solid"
+            color="primary"
+            :loading="isLoading"
+            @click="updateCustomUrl"
+          >
+            Update URL
+          </UButton>
+        </div>
+      </div>
+    </UModal>
+
     <div class="flex flex-row pt-4 md:pt-5 justify-center">
       <Navbar />
     </div>
@@ -249,37 +404,51 @@ onMounted(() => {
                 </span>
               </UTooltip>
             </div>
-            <UButton class="rounded-full opacity-75" variant="outline" :onclick="handleOnClickCopy">
+            <UButton class="rounded-full opacity-75" variant="outline" @click="handleOnClickCopy">
               Share
             </UButton>
-            <!-- TODO: Implement this edit button and also add switch visibility button. -->
-            <UButton class="rounded-full opacity-75" variant="outline">
+            <UButton
+              v-if="gist.userId === profile.data.UserID"
+              class="rounded-full opacity-75"
+              variant="outline"
+              :icon="gist.isPublic ? 'i-heroicons-lock-closed' : 'i-heroicons-lock-open'"
+              @click="toggleVisibility"
+            >
+              {{ gist.isPublic ? 'Make Private' : 'Make Public' }}
+            </UButton>
+            <UButton
+              v-if="gist.userId === profile.data.UserID"
+              class="rounded-full opacity-75"
+              variant="outline"
+              @click="openEditUrlModal"
+            >
               Edit URL
             </UButton>
           </div>
         </div>
-
         <LazyCodePreview
           :title="gist.gistTitle"
-          :filename="gist.fileId"
+          :filename="gist.fileName"
           :code="gistContent"
-          lang="go"
+          :lang="gist.fileName.split('.').pop() || 'go'"
           :show-edit-button="gist.userId === profile.data.UserID"
           :show-copy-button="true"
           @update:code="handleCodeUpdate"
         />
       </div>
-
-      <div v-if="hasChanges" class="mt-4 flex justify-end">
-        <UButton
-          color="primary"
-          :loading="isLoading"
-          icon="heroicons:check"
-          @click="saveChanges"
-        >
-          Save Changes
-        </UButton>
-      </div>
     </div>
+
+    <div v-if="hasChanges" class="mt-4 flex justify-end">
+      <UButton
+        color="primary"
+        :loading="isLoading"
+        icon="heroicons:check"
+        @click="saveChanges"
+      >
+        Save Changes
+      </UButton>
+    </div>
+
+    <LazyGistReply v-if="gist && gist.fileId && !isLoading" :gist-id="gist.fileId" />
   </main>
 </template>

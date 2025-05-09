@@ -179,75 +179,76 @@ func (gh *GistHandler) GetAllGists(c echo.Context) error {
 }
 
 func (gh *GistHandler) GetGist(c echo.Context) error {
-    GistUrl := c.Param("id")
-    GistID := c.QueryParam("gid")
-    if GistUrl == "" {
-        return echo.NewHTTPError(http.StatusNotFound, map[string]any{
-            "success": false,
-            "message": "Gist URL is required",
-        })
-    }
+	GistUrl := c.Param("id")
+	GistID := c.QueryParam("gid")
+	if GistUrl == "" {
+		return echo.NewHTTPError(http.StatusNotFound, map[string]any{
+			"success": false,
+			"message": "Gist URL is required",
+		})
+	}
 
-    Gist, err := gh.gistDB.GetGistByShortURL(context.Background(), GistUrl)
-    if err != nil {
-        return echo.NewHTTPError(http.StatusNotFound, map[string]any{
-            "success": false,
-            "message": "Gist not found",
-        })
-    }
+	Gist, err := gh.gistDB.GetGistByShortURL(context.Background(), GistUrl)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusNotFound, map[string]any{
+			"success": false,
+			"message": "Gist not found",
+		})
+	}
 
-    if Gist.IsDeleted {
-        return echo.NewHTTPError(http.StatusNotFound, map[string]any{
-            "success": false,
-            "message": "Gist has been deleted",
-        })
-    }
+	if Gist.IsDeleted {
+		return echo.NewHTTPError(http.StatusNotFound, map[string]any{
+			"success": false,
+			"message": "Gist has been deleted",
+		})
+	}
 
-    if !Gist.IsPublic && Gist.FileID != GistID {
-        return echo.NewHTTPError(http.StatusUnauthorized, map[string]any{
-            "success": false,
-            "message": "Unauthorized access to private gist",
-        })
-    }
+	if !Gist.IsPublic && Gist.FileID != GistID {
+		return echo.NewHTTPError(http.StatusUnauthorized, map[string]any{
+			"success": false,
+			"message": "Unauthorized access to private gist",
+		})
+	}
 
-    gistData, err := gh.minio.GetObject(context.Background(), Gist.FileName, minio.GetObjectOptions{})
-    if err != nil {
-        c.Logger().Error(err, gistData)
-        return handleMinioError(err)
-    }
-    defer func() {
-        if err := gistData.Close(); err != nil {
-            slog.AnyValue(fmt.Errorf("error while closing the file: %w", err))
-        }
-    }()
+	gistData, err := gh.minio.GetObject(context.Background(), Gist.FileName, minio.GetObjectOptions{})
+	if err != nil {
+		c.Logger().Error(err, gistData)
+		return handleMinioError(err)
+	}
+	defer func() {
+		if err := gistData.Close(); err != nil {
+			slog.AnyValue(fmt.Errorf("error while closing the file: %w", err))
+		}
+	}()
 
-    metadata := map[string]interface{}{
-        "userID":     Gist.UserID,
-        "fileID":     Gist.FileID,
-        "gistTitle":  Gist.GistTitle,
-        "shortUrl":   Gist.ShortUrl,
-        "viewCount":  Gist.ViewCount,
-        "isPublic":   Gist.IsPublic,
-        "createdAt":  Gist.CreatedAt,
-        "updatedAt":  Gist.UpdatedAt,
-        "forkedFrom": Gist.ForkedFrom,
-    }
+	metadata := map[string]interface{}{
+		"userID":     Gist.UserID,
+		"fileID":     Gist.FileID,
+		"fileName":   Gist.FileName,
+		"gistTitle":  Gist.GistTitle,
+		"shortUrl":   Gist.ShortUrl,
+		"viewCount":  Gist.ViewCount,
+		"isPublic":   Gist.IsPublic,
+		"createdAt":  Gist.CreatedAt,
+		"updatedAt":  Gist.UpdatedAt,
+		"forkedFrom": Gist.ForkedFrom,
+	}
 
-    buffer := &bytes.Buffer{}
-    if _, err := io.Copy(buffer, gistData); err != nil {
-        c.Logger().Error(err, Gist)
-        return echo.NewHTTPError(http.StatusInternalServerError, map[string]any{
-            "success": false,
-            "message": "Failed to read file content",
-        })
-    }
+	buffer := &bytes.Buffer{}
+	if _, err := io.Copy(buffer, gistData); err != nil {
+		c.Logger().Error(err, Gist)
+		return echo.NewHTTPError(http.StatusInternalServerError, map[string]any{
+			"success": false,
+			"message": "Failed to read file content",
+		})
+	}
 
-    return c.JSON(http.StatusOK, map[string]any{
-        "success":  true,
-        "message":  "Gist fetched successfully",
-        "content":  buffer.String(),
-        "metadata": metadata,
-    })
+	return c.JSON(http.StatusOK, map[string]any{
+		"success":  true,
+		"message":  "Gist fetched successfully",
+		"content":  buffer.String(),
+		"metadata": metadata,
+	})
 }
 
 func (gh *GistHandler) UpdateGist(c echo.Context) error {
