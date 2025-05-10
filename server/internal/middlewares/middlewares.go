@@ -21,7 +21,7 @@ func SetupMiddlewares(app *echo.Echo) {
 			utils.GetEnv("CLIENT_URL"),
 		},
 		AllowCredentials: true,
-		ExposeHeaders: []string{"gist-metadata", "Gist-Metadata"}, // Try both cases
+		ExposeHeaders: []string{"gist-metadata", "Gist-Metadata"},
 		AllowMethods: []string{http.MethodGet, http.MethodPost, http.MethodPut, http.MethodDelete},
 		AllowHeaders: []string{echo.HeaderOrigin, echo.HeaderContentType, echo.HeaderAccept},
 	}))

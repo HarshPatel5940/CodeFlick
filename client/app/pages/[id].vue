@@ -99,7 +99,6 @@ async function updateGist(options: {
     }
 
     for (const [key, value] of Object.entries(formData)) {
-    // Ensure files are properly appended to form data
       if (value instanceof File) {
         requestFormData.append(key, value, value.name)
       }
@@ -108,7 +107,6 @@ async function updateGist(options: {
       }
     }
 
-    // Always include the file unless it's just a metadata update
     if (updateType !== 'visibility' && !('file' in formData)) {
       const file = new File([gistContent.value], gist.value.fileName, { type: 'text/plain' })
       requestFormData.append('file', file)
@@ -238,7 +236,6 @@ async function handleCodeUpdate(newCode: string) {
     hasChanges.value = true
     gistContent.value = newCode
 
-    // We use nextTick to ensure UI updates after state changes
     await nextTick()
   }
 }
@@ -247,7 +244,6 @@ async function saveChanges() {
   if (!hasChanges.value)
     return
 
-  // When saving content changes, we need to ensure the file is properly included
   const file = new File([gistContent.value], gist.value.fileName, { type: 'text/plain' })
 
   updateGist({
