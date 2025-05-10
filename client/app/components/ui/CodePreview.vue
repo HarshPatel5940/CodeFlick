@@ -6,12 +6,13 @@ import go from 'highlight.js/lib/languages/go'
 import java from 'highlight.js/lib/languages/java'
 import javascript from 'highlight.js/lib/languages/javascript'
 import json from 'highlight.js/lib/languages/json'
+import markdown from 'highlight.js/lib/languages/markdown'
 import python from 'highlight.js/lib/languages/python'
 import ruby from 'highlight.js/lib/languages/ruby'
 import typescript from 'highlight.js/lib/languages/typescript'
 import xml from 'highlight.js/lib/languages/xml'
 import yaml from 'highlight.js/lib/languages/yaml'
-import { computed, nextTick, onMounted, ref, watch } from 'vue'
+
 import 'highlight.js/styles/atom-one-dark.css'
 
 const props = defineProps({
@@ -50,19 +51,20 @@ const props = defineProps({
 })
 
 const emit = defineEmits(['update:code'])
-// Register languages with highlight.js
+
 hljs.registerLanguage('javascript', javascript)
 hljs.registerLanguage('typescript', typescript)
 hljs.registerLanguage('python', python)
 hljs.registerLanguage('java', java)
 hljs.registerLanguage('xml', xml)
-hljs.registerLanguage('html', xml) // Use XML for HTML
+hljs.registerLanguage('html', xml)
 hljs.registerLanguage('css', css)
 hljs.registerLanguage('bash', bash)
 hljs.registerLanguage('ruby', ruby)
 hljs.registerLanguage('go', go)
 hljs.registerLanguage('json', json)
 hljs.registerLanguage('yaml', yaml)
+hljs.registerLanguage('markdown', markdown)
 
 const codeContent = ref(props.code)
 const isEditing = ref(props.allowEditing)
@@ -92,6 +94,7 @@ const languageMap = {
   yml: { display: 'YAML', highlight: 'yaml' },
   sh: { display: 'Shell', highlight: 'bash' },
   bash: { display: 'Bash', highlight: 'bash' },
+  md: { display: 'Markdown', highlight: 'markdown' },
 }
 
 const displayFilename = computed(() => {
@@ -101,13 +104,18 @@ const displayFilename = computed(() => {
 })
 
 const highlightLang = computed(() => {
-  const lang = props.lang.toLowerCase()
+  const lang = detectLanguage.value.toLowerCase()
   return languageMap[lang]?.highlight || 'javascript'
 })
 
 const displayLang = computed(() => {
   const lang = props.lang.toLowerCase()
   return languageMap[lang]?.display || props.lang
+})
+
+const detectLanguage = computed(() => {
+  const extension = props.filename.split('.').pop()?.toLowerCase()
+  return extension && languageMap[extension] ? extension : props.lang
 })
 
 const highlightedCode = computed(() => {
@@ -166,7 +174,7 @@ onMounted(() => {
 </script>
 
 <template>
-  <div class="code-preview-container rounded-lg shadow-xl overflow-hidden border border-myborder dark:border-myborder bg-gray-800 dark:bg-gray-900">
+  <div class="code-preview-container rounded-lg shadow-xl overflow-hidden border border-myborder dark:border-myborder bg-gray-800 dark:bg-gray-900 mt-5 md:mt-8">
     <div class="flex items-center justify-between p-3 bg-mybg dark:bg-mybg border-b border-myborder">
       <div class="flex items-center">
         <div class="flex space-x-2 mr-4">
@@ -219,7 +227,7 @@ onMounted(() => {
       </div>
 
       <div class="absolute bottom-2 right-2 text-xs text-gray-500 bg-[#282c34]/90 px-2 py-1 rounded-md">
-        {{ displayLang }}
+        {{ languageMap[detectLanguage.value]?.display || displayLang }}
       </div>
     </div>
   </div>

@@ -1,6 +1,7 @@
 export interface Gist {
   fileId: string
   userId: string
+  fileName: string
 
   gistTitle: string
   forkedFrom: string

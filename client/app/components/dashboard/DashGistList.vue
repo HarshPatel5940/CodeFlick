@@ -1,7 +1,7 @@
 <script setup lang="ts">
+import type { Gist } from '~/types/gists'
 import { onMounted, ref, watch } from 'vue'
 import { useGists } from '~/composables/useGists'
-import type { Gist } from '~/types/gists'
 
 const props = defineProps({
   fetchUrl: {
@@ -118,11 +118,15 @@ watch(() => props.fetchUrl, loadGists, { immediate: false })
 
     <div v-else class="flex flex-col space-y-4">
       <div v-for="gist in gistsList" :key="gist.fileId" class="bg-white dark:bg-gray-800/75 rounded-lg p-2 transition-all hover:shadow-md hover:scale-[1.01]">
-        <a :href="gist.shortUrl" class="w-full block">
+        <a :href="gist.isPublic ? `/${gist.shortUrl}` : `/${gist.shortUrl}?gid=${gist.fileId}`" class="w-full block">
           <UTooltip :text="gist.shortUrl" :popper="{ placement: 'top-start' }" class="w-full">
             <UCard class="w-full">
               <div class="font-medium">
                 {{ gist.gistTitle }}
+                <span v-if="!gist.isPublic" class="ml-2 text-xs px-2 py-0.5 bg-gray-200 dark:bg-gray-700 rounded">
+                  <Icon name="heroicons:lock-closed" class="w-3 h-3 inline mr-1" />
+                  Private
+                </span>
               </div>
               <template #footer>
                 <div class="flex justify-between items-center">

@@ -8,12 +8,52 @@ import (
 	"github.com/jmoiron/sqlx"
 )
 
+/*
+	type Reply struct {
+		ID        string    `json:"id" db:"id"`
+		UserID    string    `json:"user_id" db:"user_id"`
+		GistID    string    `json:"gist_id" db:"gist_id"`
+		Message   string    `json:"message" db:"message"`
+		IsDeleted bool      `json:"is_deleted" db:"is_deleted"`
+		CreatedAt time.Time `json:"created_at" db:"created_at"`
+		UpdatedAt time.Time `json:"updated_at" db:"updated_at"`
+	}
+
+	type User struct {
+		ID           string `json:"id" db:"id"`
+		Name         string `json:"name" db:"name"`
+		Email        string `json:"email" db:"email" `
+		AuthProvider string `json:"authProvider" db:"auth_provider"`
+		IsAdmin      bool   `json:"isAdmin" db:"is_admin"`
+		IsPremium    bool   `json:"isPremium" db:"is_premium"`
+		IsDeleted    bool   `json:"isDeleted" db:"is_deleted"`
+
+		CreatedAt string `json:"createdAt" db:"created_at"`
+		UpdatedAt string `json:"updatedAt" db:"updated_at"`
+	}
+*/
 const (
-	getRepliesByGistID = `SELECT * FROM replies WHERE gist_id = $1;`
-	getReplyByID       = `SELECT * FROM replies WHERE id = $1 AND gist_id = $2;`
-	insertReply        = `INSERT INTO replies (id, user_id, gist_id, message) VALUES ($1, $2, $3, $4);`
-	updateReply        = `UPDATE replies SET message = $4, updated_at = $5 WHERE id = $1 AND user_id = $2 AND gist_id = $3;`
-	deleteReply        = `UPDATE replies SET is_deleted = true, updated_at = $4 WHERE id = $1 AND user_id = $2 AND gist_id = $3;`
+	getRepliesByGistID = `
+		SELECT r.*, u.name 
+		FROM replies r 
+		JOIN users u ON r.user_id = u.id 
+		WHERE r.gist_id = $1;`
+	getReplyByID = `
+		SELECT r.*, u.name 
+		FROM replies r 
+		JOIN users u ON r.user_id = u.id 
+		WHERE r.id = $1 AND r.gist_id = $2;`
+	insertReply = `
+		INSERT INTO replies (id, user_id, gist_id, message) 
+		VALUES ($1, $2, $3, $4);`
+	updateReply = `
+		UPDATE replies 
+		SET message = $1, updated_at = $2 
+		WHERE id = $3 AND user_id = $4 AND gist_id = $5;`
+	deleteReply = `
+		UPDATE replies 
+		SET is_deleted = true, updated_at = $1 
+		WHERE id = $2 AND user_id = $3 AND gist_id = $4;`
 )
 
 type ReplyDB struct {

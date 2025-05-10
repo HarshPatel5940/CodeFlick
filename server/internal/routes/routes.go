@@ -60,7 +60,6 @@ func SetupAPIRoutes(e *echo.Group,
 	adminRoutes.GET("/buckets", gh.ListBuckets)
 	adminRoutes.GET("/buckets/:bucket", gh.ListAllFiles)
 	adminRoutes.GET("/users", ah.GetAllUsers)
-	// TODO: Did not test this, so do it when u get time.
 	adminRoutes.PUT("/gists/:id/reply/:reply_id", gh.UpdateGist)
 	adminRoutes.DELETE("/gists/:id/reply/:reply_id", gh.DeleteGist)
 }
