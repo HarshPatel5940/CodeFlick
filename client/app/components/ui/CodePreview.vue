@@ -174,7 +174,7 @@ onMounted(() => {
 </script>
 
 <template>
-  <div class="code-preview-container rounded-lg shadow-xl overflow-hidden border border-myborder dark:border-myborder bg-gray-800 dark:bg-gray-900">
+  <div class="code-preview-container rounded-lg shadow-xl overflow-hidden border border-myborder dark:border-myborder bg-gray-800 dark:bg-gray-900 mt-5 md:mt-8">
     <div class="flex items-center justify-between p-3 bg-mybg dark:bg-mybg border-b border-myborder">
       <div class="flex items-center">
         <div class="flex space-x-2 mr-4">

@@ -262,7 +262,7 @@ function cancelEdit() {
 </script>
 
 <template>
-  <div class="m-auto self-center w-[65%] mt-8 border-t border-gray-200 dark:border-gray-700 pt-8">
+  <div class="self-center mt-8 border-t border-gray-200 dark:border-gray-700 pt-8">
     <h3 class="text-xl font-bold mb-6 dark:text-white">
       Replies
     </h3>
