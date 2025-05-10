@@ -40,11 +40,17 @@ const notificationColor = ref('green')
 
 const isEditUrlModalOpen = ref(false)
 const newCustomUrl = ref('')
-const newFileName = ref('')
+const isEditTitleModalOpen = ref(false)
+const newTitle = ref('')
 
 function openEditUrlModal() {
   newCustomUrl.value = gist.value.shortUrl
   isEditUrlModalOpen.value = true
+}
+
+function openEditTitleModal() {
+  newTitle.value = gist.value.gistTitle
+  isEditTitleModalOpen.value = true
 }
 
 async function updateCustomUrl() {
@@ -52,14 +58,16 @@ async function updateCustomUrl() {
     notificationMessage.value = 'Custom URL cannot be empty'
     notificationColor.value = 'red'
     showNotification.value = true
-    setTimeout(() => { showNotification.value = false }, 3000)
+    setTimeout(() => {
+      showNotification.value = false
+    }, 3000)
     return
   }
 
   isLoading.value = true
 
   try {
-    const endpoint = `${BE}/api/gists/update/${gist.value.fileId}`
+    const endpoint = `${BE}/api/gists/${gist.value.fileId}`
 
     const formData = new FormData()
     formData.append('gist_title', gist.value.gistTitle)
@@ -107,11 +115,76 @@ async function updateCustomUrl() {
   }
 }
 
+async function updateTitle() {
+  if (!newTitle.value || newTitle.value.trim() === '') {
+    notificationMessage.value = 'Title cannot be empty'
+    notificationColor.value = 'red'
+    showNotification.value = true
+    setTimeout(() => {
+      showNotification.value = false
+    }, 3000)
+    return
+  }
+
+  isLoading.value = true
+
+  try {
+    const endpoint = `${BE}/api/gists/${gist.value.fileId}`
+
+    const formData = new FormData()
+    formData.append('gist_title', newTitle.value)
+    formData.append('is_public', String(gist.value.isPublic))
+
+    const file = new File([gistContent.value], gist.value.fileId, { type: 'text/plain' })
+    formData.append('file', file)
+
+    const response = await fetch(endpoint, {
+      method: 'PUT',
+      credentials: 'include',
+      body: formData,
+    })
+
+    if (!response.ok) {
+      throw new Error(`Failed to update title: ${response.statusText}`)
+    }
+
+    const data = await response.json()
+
+    if (!data.success) {
+      throw new Error(data.message || 'Failed to update title')
+    }
+
+    const oldTitle = gist.value.gistTitle
+    gist.value.gistTitle = newTitle.value
+    isEditTitleModalOpen.value = false
+
+    useHead({
+      title: `${gist.value.gistTitle}`,
+    })
+
+    notificationMessage.value = `Title updated from "${oldTitle}" to "${newTitle.value}"`
+    notificationColor.value = 'green'
+    showNotification.value = true
+  }
+  catch (err) {
+    notificationMessage.value = err instanceof Error ? err.message : 'Failed to update title'
+    notificationColor.value = 'red'
+    showNotification.value = true
+    console.error('Error updating title:', err)
+  }
+  finally {
+    isLoading.value = false
+    setTimeout(() => {
+      showNotification.value = false
+    }, 3000)
+  }
+}
+
 async function toggleVisibility() {
   isLoading.value = true
 
   try {
-    const endpoint = `${BE}/api/gists/update/${gist.value.fileId}`
+    const endpoint = `${BE}/api/gists/${gist.value.fileId}`
 
     const formData = new FormData()
     formData.append('gist_title', gist.value.gistTitle)
@@ -278,8 +351,6 @@ async function fetchGistDetails(retry = false) {
         title: `${gist.value.gistTitle}`,
       })
     }
-
-    console.log('Profile:', profile.data.UserID, gist.value)
   }
   catch (err) {
     if (!retry) {
@@ -329,6 +400,39 @@ onMounted(() => {
             @click="updateCustomUrl"
           >
             Update URL
+          </UButton>
+        </div>
+      </div>
+    </UModal>
+
+    <UModal v-model="isEditTitleModalOpen" :ui="{ width: 'sm:max-w-md' }">
+      <div class="p-4">
+        <h2 class="text-lg font-bold mb-4">
+          Edit Title
+        </h2>
+        <div class="mb-4">
+          <UInput
+            v-model="newTitle"
+            label="Title"
+            placeholder="Enter new title"
+            class="w-full"
+          />
+        </div>
+        <div class="flex justify-end gap-2">
+          <UButton
+            variant="ghost"
+            color="gray"
+            @click="isEditTitleModalOpen = false"
+          >
+            Cancel
+          </UButton>
+          <UButton
+            variant="solid"
+            color="primary"
+            :loading="isLoading"
+            @click="updateTitle"
+          >
+            Update Title
           </UButton>
         </div>
       </div>
@@ -404,26 +508,48 @@ onMounted(() => {
                 </span>
               </UTooltip>
             </div>
-            <UButton class="rounded-full opacity-75" variant="outline" @click="handleOnClickCopy">
+
+            <UButton class="rounded-full opacity-75" icon="i-heroicons-share" variant="outline" @click="handleOnClickCopy">
               Share
             </UButton>
-            <UButton
+            <UDropdown
               v-if="gist.userId === profile.data.UserID"
-              class="rounded-full opacity-75"
-              variant="outline"
-              :icon="gist.isPublic ? 'i-heroicons-lock-closed' : 'i-heroicons-lock-open'"
-              @click="toggleVisibility"
+              :items="[
+                [
+                  {
+                    label: 'Edit Title',
+                    icon: 'heroicons:link',
+                    onClick: openEditTitleModal,
+                  },
+                  {
+                    label: 'Edit URL',
+                    icon: 'heroicons:link',
+                    onClick: openEditUrlModal,
+                  },
+                  {
+                    label: gist.isPublic ? 'Make Private' : 'Make Public',
+                    icon: gist.isPublic ? 'heroicons:lock-closed' : 'heroicons:lock-open',
+                    onClick: toggleVisibility,
+                  },
+                ],
+              ]"
+              :popper="{ placement: 'bottom-end' }"
             >
-              {{ gist.isPublic ? 'Make Private' : 'Make Public' }}
-            </UButton>
-            <UButton
-              v-if="gist.userId === profile.data.UserID"
-              class="rounded-full opacity-75"
-              variant="outline"
-              @click="openEditUrlModal"
-            >
-              Edit URL
-            </UButton>
+              <UButton
+                class="rounded-full opacity-75"
+                variant="outline"
+                icon="i-heroicons-adjustments-horizontal"
+              >
+                Edit
+              </UButton>
+
+              <template #item="{ item }">
+                <div :onclick="item.onClick" class="w-full flex flex-row justify-between">
+                  <span class="truncate">{{ item.label }}</span>
+                  <UIcon :name="item.icon" class="flex-shrink-0 h-4 w-4 text-gray-400 dark:text-gray-500 ms-auto ml-2" />
+                </div>
+              </template>
+            </UDropdown>
           </div>
         </div>
         <LazyCodePreview
