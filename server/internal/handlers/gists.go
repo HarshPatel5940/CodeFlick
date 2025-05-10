@@ -352,19 +352,50 @@ func (gh *GistHandler) UpdateGist(c echo.Context) error {
 		}
 	}()
 
-	fileName := fmt.Sprintf("%s/%s", Gist.UserID, Gist.FileID)
+	// Save the original file name for cleanup later
+	originalFileName := Gist.FileName
+	
+	// Create new filename with the same format as in UploadGist
+	newFileName := fmt.Sprintf("%s/%s-%s", Gist.UserID, Gist.FileID, file.Filename)
+	
+	// Update the filename in database
+	Gist.FileName = newFileName
+	_, err = gh.gistDB.UpdateGistFileName(context.Background(), Gist)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, map[string]any{
+			"success": false,
+			"message": "Failed to update gist filename in database!",
+			"details": err.Error(),
+		})
+	}
 
+	// Upload the file to MinIO with the new name format
 	_, err = gh.minio.PutObject(context.Background(),
-		fileName,
+		newFileName,
 		src,
 		file.Size,
 		minio.PutObjectOptions{ContentType: file.Header.Get("Content-Type"), UserMetadata: map[string]string{"fileId": Gist.FileID}})
 	if err != nil {
+		// Revert database change if file upload fails
+		Gist.FileName = originalFileName
+		_, revertErr := gh.gistDB.UpdateGistFileName(context.Background(), Gist)
+		if revertErr != nil {
+			slog.AnyValue(fmt.Errorf("failed to revert filename change in database: %w", revertErr))
+		}
+		
 		return echo.NewHTTPError(http.StatusInternalServerError, map[string]any{
 			"success": false,
 			"message": "Failed to Update File to minio!",
 			"details": minio.ToErrorResponse(err),
 		})
+	}
+	
+	// Clean up the old file if it's different from the new one
+	if originalFileName != newFileName {
+		if errRemove := gh.minio.RemoveObject(context.Background(), originalFileName, minio.RemoveObjectOptions{}); errRemove != nil {
+			// Just log the error but don't fail the request
+			slog.AnyValue(fmt.Errorf("failed to remove old file from minio: %w", errRemove))
+		}
 	}
 
 	return c.JSON(http.StatusOK, map[string]any{

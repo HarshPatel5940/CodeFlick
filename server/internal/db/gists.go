@@ -17,6 +17,7 @@ const (
 	getPublicGists           = `SELECT * FROM gists WHERE is_public = true ORDER BY created_at DESC;`
 	insertGist               = `INSERT INTO gists (user_id, file_id, gist_title, file_name, short_url, is_public) VALUES ($1, $2, $3, $4, $5, $6);`
 	updateGist               = `UPDATE gists SET gist_title = $3, short_url = $4, is_public = $5, updated_at = $6 WHERE file_id = $1 and user_id=$2 RETURNING file_id;`
+	updateGistFileName       = `UPDATE gists SET file_name = $3, updated_at = $4 WHERE file_id = $1 and user_id=$2 RETURNING file_id;`
 	deleteGist               = `UPDATE gists SET is_deleted = true, updated_at = $3 WHERE file_id = $1 AND user_id=$2 RETURNING file_id;`
 )
 
@@ -73,5 +74,11 @@ func (g *GistDB) UpdateGist(ctx context.Context, gist models.Gist) (string, erro
 func (g *GistDB) DeleteGist(ctx context.Context, gistID, userID string) (string, error) {
 	var fileID string
 	err := g.db.GetContext(ctx, &fileID, deleteGist, gistID, userID, time.Now())
+	return fileID, err
+}
+
+func (g *GistDB) UpdateGistFileName(ctx context.Context, gist models.Gist) (string, error) {
+	var fileID string
+	err := g.db.GetContext(ctx, &fileID, updateGistFileName, gist.FileID, gist.UserID, gist.FileName, time.Now())
 	return fileID, err
 }
