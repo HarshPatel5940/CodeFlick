@@ -16,7 +16,8 @@ services:
 
   codeflick_minio:
     container_name: codeflick-minio
-    image: minio/minio
+    # TO future harsh: we force version so we have current setup based on keys working.
+    image: minio/minio:RELEASE.2025-03-12T18-04-18Z
     restart: always
     ports:
       - "9000:9000"

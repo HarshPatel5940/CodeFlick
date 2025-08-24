@@ -3,7 +3,7 @@ module github.com/HarshPatel5940/CodeFlick
 go 1.24.0
 
 require (
-	github.com/a-h/templ v0.3.857
+	github.com/a-h/templ v0.3.924
 	github.com/gorilla/sessions v1.4.0
 	github.com/jackc/pgx/v5 v5.7.4
 	github.com/jmoiron/sqlx v1.4.0
