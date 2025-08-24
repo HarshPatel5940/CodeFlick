@@ -212,8 +212,7 @@ func (gh *GistHandler) GetGist(c echo.Context) error {
 
 	gistData, err := gh.minio.GetObject(context.Background(), Gist.FileName, minio.GetObjectOptions{})
 	if err != nil {
-		c.Logger().Error(err, gistData
-		)
+		c.Logger().Error(err, gistData)
 		return handleMinioError(err)
 	}
 	defer func() {
