@@ -36,11 +36,12 @@ func CreateMinioClient(cm *RetryManager) *MinioHandler {
 			Region: "",
 		})
 
-		if err == nil {
-			_, err = client.ListBuckets(context.Background())
+		if err != nil {
+			return err
 		}
 
-		return nil
+		_, err = client.ListBuckets(context.Background())
+		return err
 	}); err != nil {
 		log.Panic("Error connecting to Minio", err)
 	}
